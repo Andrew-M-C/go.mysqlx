@@ -47,8 +47,9 @@ func (FirstTable) Options() Options {
 }
 
 /* pre:
+CREATE USER 'travis'@'localhost';
 create database db_test;
-grant all privileges on db_test.* to ''@'localhost';
+grant all privileges on db_test.* to 'travis'@'localhost';
 flush privileges;
 */
 func testCreateTable(t *testing.T, db *DB) {

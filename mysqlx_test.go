@@ -9,6 +9,7 @@ import (
 func TestOpen(t *testing.T) {
 	// successfully open
 	db, err := Open(Param{
+		User:   "travis",
 		DBName: "db_test",
 	})
 	if err != nil {
@@ -23,7 +24,7 @@ func TestOpen(t *testing.T) {
 
 func TestNew(t *testing.T) {
 	var err error
-	sqlx_db, err := sqlx.Open("mysql", "tcp(localhost:3306)")
+	sqlx_db, err := sqlx.Open("mysql", "travis@tcp(localhost:3306)")
 	if err != nil {
 		panic(err)
 	}
@@ -38,7 +39,7 @@ func TestNew(t *testing.T) {
 	}
 
 	// ---
-	sqlx_db, err = sqlx.Open("mysql", "tcp(localhost:3306)/db_test")
+	sqlx_db, err = sqlx.Open("mysql", "travis@tcp(localhost:3306)/db_test")
 	if err != nil {
 		panic(err)
 	}
@@ -55,6 +56,7 @@ func TestMiscError(t *testing.T) {
 	var err error
 	_, err = Open(Param{
 		Port:   1,
+		User:   "nouser",
 		DBName: "db_test",
 	})
 	if err == nil {
