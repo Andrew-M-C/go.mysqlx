@@ -1,4 +1,4 @@
-module git.code.tencent.com/Andrew-M-C/mysqlx
+module github.com/Andrew-M-C/go.mysqlx
 
 go 1.11
 
