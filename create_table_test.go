@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"log"
 	"testing"
+	"time"
 )
 
 func init() {
@@ -18,13 +19,14 @@ type FirstTable struct {
 	VarChar      string         `db:"varchar"         mysqlx:"type:varchar(128) null:false"              comment:"unullable varchar"`
 	NullVarChar  sql.NullString `db:"null_varchar"    mysqlx:"type:varchar(64)"                          comment:"nullable varchar"`
 	Uint1        uint           `db:"uint"            mysqlx:"type:uint"`
-	Uint2        uint
+	Uint2        uint           `db:"uint2"`
+	Timestamp    time.Time      `db:"test_time"       mysqlx:"type:timestamp"`
 }
 
 type SecondTable struct {
 	NewFirstLine int32 `db:"second_table_first_line"`
 	FirstTable
-	AnotherInt sql.NullInt64
+	AnotherInt sql.NullInt64 `db:"another_int"`
 }
 
 func (FirstTable) Options() Options {

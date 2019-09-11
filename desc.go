@@ -3,6 +3,8 @@ package mysqlx
 import (
 	"database/sql"
 	"fmt"
+	"log"
+	"reflect"
 	"strings"
 )
 
@@ -170,4 +172,36 @@ func (d *DB) ReadTableIndexes(table string) (map[string]*Index, map[string]*Uniq
 	}
 
 	return index_map, unique_map, nil
+}
+
+func (_ *DB) ReadStructFields(s interface{}) (ret []*Field, err error) {
+	return ReadStructFields(s)
+}
+
+func (_ *DB) StructFields(s interface{}) (ret []*Field, err error) {
+	return ReadStructFields(s)
+}
+
+func StructFields(s interface{}) (ret []*Field, err error) {
+	return ReadStructFields(s)
+}
+
+func ReadStructFields(s interface{}) (ret []*Field, err error) {
+	t := reflect.TypeOf(s)
+	v := reflect.ValueOf(s)
+
+	log.Println("interface type: ", reflect.TypeOf(s))
+
+	switch t.Kind() {
+	case reflect.Ptr:
+		return ReadStructFields(t.Elem())
+	case reflect.Struct:
+		// OK, continue
+	default:
+		err = fmt.Errorf("invalid type: %v", t.Kind())
+		return
+	}
+
+	log.Printf("detail: %+v\n", s)
+	return readKVFields(t, v)
 }

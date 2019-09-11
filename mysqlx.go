@@ -12,23 +12,6 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-type Param struct {
-	Host   string
-	Port   int
-	User   string
-	Pass   string
-	DBName string
-}
-
-type DB struct {
-	db    *sqlx.DB
-	param Param
-
-	// keep alive routine status
-	shouldKeepAlive int32
-	isKeepingAlive  int32
-}
-
 type dbInfo struct {
 	Name sql.NullString `db:"database()"`
 }

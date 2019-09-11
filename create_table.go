@@ -3,63 +3,11 @@ package mysqlx
 import (
 	"bytes"
 	"fmt"
+	"log"
 
-	// "log"
 	"reflect"
 	"strings"
 )
-
-type Index struct {
-	Name   string
-	Fields []string
-}
-
-func (i *Index) Check() error {
-	if nil == i.Fields || 0 == len(i.Fields) {
-		return fmt.Errorf("nil fields")
-	}
-
-	if "" == i.Name {
-		i.Name = "index_" + strings.Join(i.Fields, "_")
-	}
-
-	return nil
-}
-
-type Unique struct {
-	Name   string
-	Fields []string
-}
-
-func (u *Unique) Check() error {
-	if nil == u.Fields || 0 == len(u.Fields) {
-		return fmt.Errorf("nil fields")
-	}
-
-	if "" == u.Name {
-		u.Name = "uniq_" + strings.Join(u.Fields, "_")
-	}
-
-	return nil
-}
-
-type Field struct {
-	Name          string
-	Type          string
-	Nullable      bool
-	Default       string
-	Comment       string
-	AutoIncrement bool
-	// private
-	statement string
-}
-
-type Options struct {
-	TableName      string
-	TableDescption string
-	Indexes        []Index
-	Uniques        []Unique
-}
 
 type OptionInterface interface {
 	Options() Options
@@ -116,7 +64,7 @@ func (d *DB) CreateTable(v interface{}, opts ...Options) error {
 			opt.Uniques = opts[0].Uniques
 		}
 	}
-	// log.Println("final opts: ", opt)
+	log.Println("final opts: ", opt)
 
 	// check options
 	if "" == opt.TableName {
@@ -124,7 +72,7 @@ func (d *DB) CreateTable(v interface{}, opts ...Options) error {
 	}
 
 	// read fields
-	fields, err := readStructFields(v)
+	fields, err := ReadStructFields(v)
 	if err != nil {
 		return err
 	}
@@ -169,7 +117,7 @@ func (d *DB) CreateTable(v interface{}, opts ...Options) error {
 				f.statement = fmt.Sprintf("`%s` %s %s DEFAULT %s COMMENT '%s'", f.Name, f.Type, null, f.Default, comment)
 			}
 
-			// log.Printf("statement: %s\n", f.statement)
+			log.Printf("statement: %s\n", f.statement)
 			statements = append(statements, f.statement)
 		}
 
@@ -177,7 +125,7 @@ func (d *DB) CreateTable(v interface{}, opts ...Options) error {
 		if auto_inc_field != nil {
 			s := fmt.Sprintf("PRIMARY KEY (`%s`)", auto_inc_field.Name)
 			statements = append(statements, s)
-			// log.Printf("statement: %s\n", s)
+			log.Printf("statement: %s\n", s)
 		}
 
 		if opt.Indexes != nil && len(opt.Indexes) > 0 {
@@ -192,7 +140,7 @@ func (d *DB) CreateTable(v interface{}, opts ...Options) error {
 				}
 				s := fmt.Sprintf("KEY `%s` (%s)", idx.Name, strings.Join(idx_field_list, ", "))
 				statements = append(statements, s)
-				// log.Printf("statememt: %s\n", s)
+				log.Printf("statememt: %s\n", s)
 			}
 		}
 
@@ -211,7 +159,7 @@ func (d *DB) CreateTable(v interface{}, opts ...Options) error {
 				s := fmt.Sprintf("UNIQUE KEY `%s` (%s)", uniq.Name, strings.Join(uniq_field_list, ", "))
 
 				statements = append(statements, s)
-				// log.Printf("statememt: %s\n", s)
+				log.Printf("statememt: %s\n", s)
 			}
 		}
 
@@ -229,7 +177,7 @@ func (d *DB) CreateTable(v interface{}, opts ...Options) error {
 		)
 
 		// exec
-		// log.Println(final)
+		log.Println(final)
 		_, err := d.db.Exec(final)
 		if err != nil {
 			return err
@@ -265,7 +213,7 @@ func (d *DB) CreateTable(v interface{}, opts ...Options) error {
 				if prev_field == nil {
 					// this is first column
 					statement := fmt.Sprintf("ALTER TABLE `%s` ADD COLUMN `%s` %s %s DEFAULT %s COMMENT '%s' FIRST", opt.TableName, f.Name, f.Type, null, f.Default, comment)
-					// log.Println(statement)
+					log.Println(statement)
 					_, err := d.db.Exec(statement)
 					if err != nil {
 						return err
@@ -283,7 +231,7 @@ func (d *DB) CreateTable(v interface{}, opts ...Options) error {
 						}
 					} else {
 						statement := fmt.Sprintf("ALTER TABLE `%s` ADD COLUMN `%s` %s %s DEFAULT %s COMMENT '%s' AFTER `%s`", opt.TableName, f.Name, f.Type, null, f.Default, comment, prev_field.Name)
-						// log.Println(statement)
+						log.Println(statement)
 						_, err := d.db.Exec(statement)
 						if err != nil {
 							return err
@@ -360,25 +308,7 @@ func (d *DB) CreateTable(v interface{}, opts ...Options) error {
 	}
 }
 
-func readStructFields(s interface{}) (ret []*Field, err error) {
-	t := reflect.TypeOf(s)
-	v := reflect.ValueOf(s)
-
-	switch t.Kind() {
-	case reflect.Ptr:
-		return readStructFields(t.Elem())
-	case reflect.Struct:
-		// OK, continue
-	default:
-		err = fmt.Errorf("invalid type: %v", t.Kind())
-		return
-	}
-
-	return readKVFields(t, v)
-}
-
 func readKVFields(t reflect.Type, v reflect.Value) (ret []*Field, err error) {
-
 	num_field := t.NumField()
 	ret = make([]*Field, 0, num_field)
 
@@ -386,6 +316,7 @@ func readKVFields(t reflect.Type, v reflect.Value) (ret []*Field, err error) {
 		tf := t.Field(i) // *StructField
 		vf := v.Field(i) // *Value
 		if false == vf.CanInterface() {
+			log.Println(tf.Type, " cannot interface")
 			continue
 		}
 
@@ -397,10 +328,12 @@ func readKVFields(t reflect.Type, v reflect.Value) (ret []*Field, err error) {
 		field_comt := ""
 
 		if field_name == "" || field_name == "-" {
-			continue // skip this
+			if tf.Type.Kind() != reflect.Struct {
+				continue // skip this
+			}
 		}
 
-		// // log.Printf("%02d - name %s, type: %v\n", i, tf.Name, tf.Type.Kind())
+		log.Printf("%02d - name %s, type: %v\n", i, tf.Name, tf.Type.Kind())
 		switch tf.Type.Kind() {
 		case reflect.Int64:
 			field_type = getFieldType(&tf, "bigint")
@@ -509,16 +442,17 @@ func readKVFields(t reflect.Type, v reflect.Value) (ret []*Field, err error) {
 			case "mysql.NullTime":
 				field_type = getFieldType(&tf, "datetime")
 				field_null = getFieldNullable(&tf, true)
-				field_dflt = getFieldDefault(&tf, DateTime, field_null)
+				field_dflt = getFieldDefault(&tf, DateTime, field_null, field_type)
 				field_incr = getFieldAutoIncrement(&tf, false)
 				field_comt = getFieldComment(&tf)
 			case "time.Time":
 				field_type = getFieldType(&tf, "datetime")
 				field_null = getFieldNullable(&tf, false)
-				field_dflt = getFieldDefault(&tf, DateTime, field_null)
+				field_dflt = getFieldDefault(&tf, DateTime, field_null, field_type)
 				field_incr = getFieldAutoIncrement(&tf, false)
 				field_comt = getFieldComment(&tf)
 			default:
+				log.Println("Embedded struct: ", tf.Type)
 				sub_fields, err := readKVFields(tf.Type, vf)
 				if err != nil {
 					return nil, err
@@ -527,18 +461,18 @@ func readKVFields(t reflect.Type, v reflect.Value) (ret []*Field, err error) {
 				continue
 			}
 		default:
-			// log.Printf("unrecognized type %v\n", tf.Type.Kind())
+			log.Printf("unrecognized type %v\n", tf.Type.Kind())
 			continue
 			// go on below
 		}
 
 		// done
-		// // log.Printf("%02d - Got tag name: %s\n", i, field_name)
-		// // log.Printf("     Got tag type: %s\n", field_type)
-		// // log.Printf("     Got tag null: %v\n", field_null)
-		// // log.Printf("     Got tag dflt: %v\n", field_dflt)
-		// // log.Printf("     Got tag incr: %v\n", field_incr)
-		// // log.Printf("     Got tag comt: %v\n", field_comt)
+		// log.Printf("%02d - Got tag name: %s\n", i, field_name)
+		// log.Printf("     Got tag type: %s\n", field_type)
+		// log.Printf("     Got tag null: %v\n", field_null)
+		// log.Printf("     Got tag dflt: %v\n", field_dflt)
+		// log.Printf("     Got tag incr: %v\n", field_incr)
+		// log.Printf("     Got tag comt: %v\n", field_comt)
 
 		ret = append(ret, &Field{
 			Name:          field_name,
@@ -555,8 +489,9 @@ func readKVFields(t reflect.Type, v reflect.Value) (ret []*Field, err error) {
 func getFieldName(tf *reflect.StructField) string {
 	db_tag_list := strings.SplitN(tf.Tag.Get("db"), ",", 2)
 	if nil == db_tag_list || 0 == len(db_tag_list) || "" == db_tag_list[0] {
-		// no db tags, Try tag name
-		return _fieldNameToSql(tf.Name)
+		// no db tags, this field would be ignored
+		// return _fieldNameToSql(tf.Name)
+		return ""
 	} else {
 		return db_tag_list[0]
 	}
@@ -599,14 +534,22 @@ func getFieldAutoIncrement(tf *reflect.StructField, dft bool) bool {
 	}
 }
 
-func getFieldDefault(tf *reflect.StructField, category category, nullable bool) string {
+func getFieldDefault(tf *reflect.StructField, category category, nullable bool, fieldTypes ...string) string {
 	n := _readMysqlxTag(tf, "default")
 	if n != "" {
-		if category == String {
+		switch category {
+		case String:
 			return "'" + strings.Replace(n, "'", "\\'", -1) + "'"
-		} else {
+		case DateTime:
+			if n == "0" {
+				return "0"
+			} else {
+				return "'" + strings.Replace(n, "_", " ", -1) + "'"
+			}
+		default:
 			return n
 		}
+
 	} else {
 		if nullable {
 			return "NULL"
@@ -619,7 +562,21 @@ func getFieldDefault(tf *reflect.StructField, category category, nullable bool) 
 		case Bool:
 			return "FALSE"
 		case DateTime:
-			return "1970/01/01 00:00:00"
+			switch strings.ToLower(fieldTypes[0]) {
+			case "timestamp":
+				return "convert_tz('1970-01-01 00:00:01', '+00:00', @@time_zone)"
+				// return "'1970-01-02 00:00:01'"
+			case "datetime":
+				return "'1970-01-01 00:00:00'"
+			case "date":
+				return "'1970-01-01'"
+			case "time":
+				return "'00:00:00'"
+			case "year":
+				return "'1970-01-01'"
+			default:
+				return "'1970-01-01'"
+			}
 		default:
 			return "NULL"
 		}
