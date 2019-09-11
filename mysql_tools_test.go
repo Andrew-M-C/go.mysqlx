@@ -7,7 +7,7 @@ import (
 )
 
 type User struct {
-	ID          int32          `db:"id"`
+	ID          int32          `db:"id"             mysqlx:"increment:true"`
 	FirstName   sql.NullString `db:"first_name"     mysqlx:"type:varchar(20)"`
 	MiddleName  sql.NullString `db:"middle_name"    mysqlx:"type:varchar(100)"`
 	FamilyName  sql.NullString `db:"family_name"    mysqlx:"type:varchar(20)"`
@@ -55,14 +55,36 @@ func TestQuery(t *testing.T) {
 		return
 	}
 
+	const SHOULD_BE = "`id`, `first_name`, `middle_name`, `family_name`, `full_name`, `gender`, `birth_date`, `nation`"
+	select_fields, err := db.SelectFields(User{})
+	if err != nil {
+		return
+	}
+	t.Logf("fields: %s", select_fields)
+
 	// insert one
-	// new_user := User{
-	// 	FirstName:   sql.NullString{Valid: true, String: "Walter"},
-	// 	MiddleName:  sql.NullString{Valid: true, String: "Elias"},
-	// 	FamilyName:  sql.NullString{Valid: true, String: "Disney"},
-	// 	FullName:    "Walter Elias Disney",
-	// 	Gender:      "Male",
-	// 	BirthDate:   time.Date(1901, 12, 5, 0, 0, 0, 0, nil),
-	// 	Nationality: "U.S.",
-	// }
+	new_user := User{
+		FirstName:   sql.NullString{Valid: true, String: "Walter"},
+		MiddleName:  sql.NullString{Valid: true, String: "Elias"},
+		FamilyName:  sql.NullString{Valid: true, String: "Disney"},
+		FullName:    "Walter Elias Disney",
+		Gender:      "Male",
+		BirthDate:   time.Date(1901, 12, 5, 0, 0, 0, 0, time.UTC),
+		Nationality: "U.S.",
+	}
+
+	keys, values, err := db.InsertFields(new_user)
+	if err != nil {
+		return
+	}
+	t.Logf("Keys: %v", keys)
+	t.Logf("Vals: %v", values)
+
+	id, err := db.Insert(new_user)
+	if err != nil {
+		return
+	}
+
+	t.Logf("inserted id: %d", id)
+	return
 }

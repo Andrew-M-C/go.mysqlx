@@ -3,7 +3,6 @@ package mysqlx
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"reflect"
 	"strings"
 )
@@ -174,8 +173,20 @@ func (d *DB) ReadTableIndexes(table string) (map[string]*Index, map[string]*Uniq
 	return index_map, unique_map, nil
 }
 
-func (_ *DB) ReadStructFields(s interface{}) (ret []*Field, err error) {
-	return ReadStructFields(s)
+func (d *DB) ReadStructFields(s interface{}) (ret []*Field, err error) {
+	// read from buffer
+	intf_name := reflect.TypeOf(s)
+	field_value, exist := d.bufferedFields.Load(intf_name)
+	if exist {
+		return field_value.([]*Field), nil
+	}
+
+	// read now
+	ret, err = ReadStructFields(s)
+	if err != nil {
+		d.bufferedFields.Store(intf_name, ret)
+	}
+	return
 }
 
 func (_ *DB) StructFields(s interface{}) (ret []*Field, err error) {
@@ -190,8 +201,6 @@ func ReadStructFields(s interface{}) (ret []*Field, err error) {
 	t := reflect.TypeOf(s)
 	v := reflect.ValueOf(s)
 
-	log.Println("interface type: ", reflect.TypeOf(s))
-
 	switch t.Kind() {
 	case reflect.Ptr:
 		return ReadStructFields(t.Elem())
@@ -202,6 +211,5 @@ func ReadStructFields(s interface{}) (ret []*Field, err error) {
 		return
 	}
 
-	log.Printf("detail: %+v\n", s)
-	return readKVFields(t, v)
+	return readStructFields(t, v)
 }

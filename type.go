@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/jmoiron/sqlx"
+	"golang.org/x/sync/syncmap"
 )
 
 type Param struct {
@@ -22,6 +23,11 @@ type DB struct {
 	// keep alive routine status
 	shouldKeepAlive int32
 	isKeepingAlive  int32
+
+	// interface field buffers
+	bufferedFields       syncmap.Map // []*Field
+	bufferedFieldMaps    syncmap.Map // map[string]*Field
+	bufferedSelectFields syncmap.Map // []string
 }
 
 type Index struct {

@@ -3,7 +3,6 @@ package mysqlx
 import (
 	"bytes"
 	"fmt"
-	"log"
 
 	"reflect"
 	"strings"
@@ -39,12 +38,7 @@ func (d *DB) MustCreateTable(v interface{}, opts ...Options) {
 	return
 }
 
-func (d *DB) CreateTable(v interface{}, opts ...Options) error {
-	if nil == d.db {
-		return fmt.Errorf("mysqlx not initialized")
-	}
-
-	// read options
+func mergeOptions(v interface{}, opts ...Options) Options {
 	opt := Options{}
 	if intf, ok := v.(OptionInterface); ok {
 		opt = intf.Options()
@@ -64,7 +58,17 @@ func (d *DB) CreateTable(v interface{}, opts ...Options) error {
 			opt.Uniques = opts[0].Uniques
 		}
 	}
-	log.Println("final opts: ", opt)
+	return opt
+}
+
+func (d *DB) CreateTable(v interface{}, opts ...Options) error {
+	if nil == d.db {
+		return fmt.Errorf("mysqlx not initialized")
+	}
+
+	// read options
+	opt := mergeOptions(v, opts...)
+	// log.Println("final opts: ", opt)
 
 	// check options
 	if "" == opt.TableName {
@@ -117,7 +121,7 @@ func (d *DB) CreateTable(v interface{}, opts ...Options) error {
 				f.statement = fmt.Sprintf("`%s` %s %s DEFAULT %s COMMENT '%s'", f.Name, f.Type, null, f.Default, comment)
 			}
 
-			log.Printf("statement: %s\n", f.statement)
+			// log.Printf("statement: %s\n", f.statement)
 			statements = append(statements, f.statement)
 		}
 
@@ -125,7 +129,7 @@ func (d *DB) CreateTable(v interface{}, opts ...Options) error {
 		if auto_inc_field != nil {
 			s := fmt.Sprintf("PRIMARY KEY (`%s`)", auto_inc_field.Name)
 			statements = append(statements, s)
-			log.Printf("statement: %s\n", s)
+			// log.Printf("statement: %s\n", s)
 		}
 
 		if opt.Indexes != nil && len(opt.Indexes) > 0 {
@@ -140,7 +144,7 @@ func (d *DB) CreateTable(v interface{}, opts ...Options) error {
 				}
 				s := fmt.Sprintf("KEY `%s` (%s)", idx.Name, strings.Join(idx_field_list, ", "))
 				statements = append(statements, s)
-				log.Printf("statememt: %s\n", s)
+				// log.Printf("statememt: %s\n", s)
 			}
 		}
 
@@ -159,7 +163,7 @@ func (d *DB) CreateTable(v interface{}, opts ...Options) error {
 				s := fmt.Sprintf("UNIQUE KEY `%s` (%s)", uniq.Name, strings.Join(uniq_field_list, ", "))
 
 				statements = append(statements, s)
-				log.Printf("statememt: %s\n", s)
+				// log.Printf("statememt: %s\n", s)
 			}
 		}
 
@@ -177,7 +181,7 @@ func (d *DB) CreateTable(v interface{}, opts ...Options) error {
 		)
 
 		// exec
-		log.Println(final)
+		// log.Println(final)
 		_, err := d.db.Exec(final)
 		if err != nil {
 			return err
@@ -213,7 +217,7 @@ func (d *DB) CreateTable(v interface{}, opts ...Options) error {
 				if prev_field == nil {
 					// this is first column
 					statement := fmt.Sprintf("ALTER TABLE `%s` ADD COLUMN `%s` %s %s DEFAULT %s COMMENT '%s' FIRST", opt.TableName, f.Name, f.Type, null, f.Default, comment)
-					log.Println(statement)
+					// log.Println(statement)
 					_, err := d.db.Exec(statement)
 					if err != nil {
 						return err
@@ -231,7 +235,7 @@ func (d *DB) CreateTable(v interface{}, opts ...Options) error {
 						}
 					} else {
 						statement := fmt.Sprintf("ALTER TABLE `%s` ADD COLUMN `%s` %s %s DEFAULT %s COMMENT '%s' AFTER `%s`", opt.TableName, f.Name, f.Type, null, f.Default, comment, prev_field.Name)
-						log.Println(statement)
+						// log.Println(statement)
 						_, err := d.db.Exec(statement)
 						if err != nil {
 							return err
@@ -308,7 +312,7 @@ func (d *DB) CreateTable(v interface{}, opts ...Options) error {
 	}
 }
 
-func readKVFields(t reflect.Type, v reflect.Value) (ret []*Field, err error) {
+func readStructFields(t reflect.Type, v reflect.Value) (ret []*Field, err error) {
 	num_field := t.NumField()
 	ret = make([]*Field, 0, num_field)
 
@@ -316,7 +320,7 @@ func readKVFields(t reflect.Type, v reflect.Value) (ret []*Field, err error) {
 		tf := t.Field(i) // *StructField
 		vf := v.Field(i) // *Value
 		if false == vf.CanInterface() {
-			log.Println(tf.Type, " cannot interface")
+			// log.Println(tf.Type, " cannot interface")
 			continue
 		}
 
@@ -333,7 +337,7 @@ func readKVFields(t reflect.Type, v reflect.Value) (ret []*Field, err error) {
 			}
 		}
 
-		log.Printf("%02d - name %s, type: %v\n", i, tf.Name, tf.Type.Kind())
+		// log.Printf("%02d - name %s, type: %v\n", i, tf.Name, tf.Type.Kind())
 		switch tf.Type.Kind() {
 		case reflect.Int64:
 			field_type = getFieldType(&tf, "bigint")
@@ -452,8 +456,8 @@ func readKVFields(t reflect.Type, v reflect.Value) (ret []*Field, err error) {
 				field_incr = getFieldAutoIncrement(&tf, false)
 				field_comt = getFieldComment(&tf)
 			default:
-				log.Println("Embedded struct: ", tf.Type)
-				sub_fields, err := readKVFields(tf.Type, vf)
+				// log.Println("Embedded struct: ", tf.Type)
+				sub_fields, err := readStructFields(tf.Type, vf)
 				if err != nil {
 					return nil, err
 				}
@@ -461,18 +465,18 @@ func readKVFields(t reflect.Type, v reflect.Value) (ret []*Field, err error) {
 				continue
 			}
 		default:
-			log.Printf("unrecognized type %v\n", tf.Type.Kind())
+			// log.Printf("unrecognized type %v\n", tf.Type.Kind())
 			continue
 			// go on below
 		}
 
 		// done
-		// log.Printf("%02d - Got tag name: %s\n", i, field_name)
-		// log.Printf("     Got tag type: %s\n", field_type)
-		// log.Printf("     Got tag null: %v\n", field_null)
-		// log.Printf("     Got tag dflt: %v\n", field_dflt)
-		// log.Printf("     Got tag incr: %v\n", field_incr)
-		// log.Printf("     Got tag comt: %v\n", field_comt)
+		// // log.Printf("%02d - Got tag name: %s\n", i, field_name)
+		// // log.Printf("     Got tag type: %s\n", field_type)
+		// // log.Printf("     Got tag null: %v\n", field_null)
+		// // log.Printf("     Got tag dflt: %v\n", field_dflt)
+		// // log.Printf("     Got tag incr: %v\n", field_incr)
+		// // log.Printf("     Got tag comt: %v\n", field_comt)
 
 		ret = append(ret, &Field{
 			Name:          field_name,
@@ -564,8 +568,8 @@ func getFieldDefault(tf *reflect.StructField, category category, nullable bool, 
 		case DateTime:
 			switch strings.ToLower(fieldTypes[0]) {
 			case "timestamp":
-				return "convert_tz('1970-01-01 00:00:01', '+00:00', @@time_zone)"
-				// return "'1970-01-02 00:00:01'"
+				// return "convert_tz('1970-01-01 00:00:01', '+00:00', @@time_zone)"
+				return "'1970-01-02 00:00:01'" // advoid timezone offsets
 			case "datetime":
 				return "'1970-01-01 00:00:00'"
 			case "date":
