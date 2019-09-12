@@ -54,21 +54,22 @@ create database db_test;
 grant all privileges on db_test.* to 'travis'@'localhost';
 flush privileges;
 */
-func testCreateTable(t *testing.T, db *DB) {
-	db.MustCreateTable(FirstTable{})
-	db.MustCreateTable(SecondTable{}, Options{
+func testCreateTable(t *testing.T, d *DB) {
+	d.MustCreateTable(FirstTable{})
+	d.MustCreateTable(SecondTable{}, Options{
 		Indexes: []Index{Index{
 			Fields: []string{"varchar"},
 		}},
 	})
 
-	db.MustCreateTable(SecondTable{}, Options{
-		TableName: "t_test_3rd",
+	d.MustCreateTable(SecondTable{}, Options{
+		TableName:      "t_testB",
+		TableDescption: "another table for t_test",
 		Uniques: []Unique{Unique{
 			Fields: []string{"uint", "uint2"},
 		}},
 	})
-	err := db.CreateTable(struct{}{})
+	err := d.CreateTable(struct{}{})
 	if err == nil {
 		t.Errorf("expected error not raised")
 		return
@@ -87,4 +88,54 @@ func TestPanic(t *testing.T) {
 	d.MustCreateTable(FirstTable{})
 
 	return
+}
+
+func testCreateNoAutoIncrement(t *testing.T, d *DB) {
+	d.MustCreateTable(
+		struct {
+			Count int64 `db:"count"`
+		}{},
+		Options{TableName: "t_no_inc"},
+	)
+}
+
+// some expection / error test
+func testCreateTableMiscError(t *testing.T, d *DB) {
+	var err error
+	check_expected_error := func(msg string) {
+		if err == nil {
+			t.Errorf("expected error when '%s' but no error raised", msg)
+		} else {
+			t.Logf("expected error when '%s': %v", msg, err)
+		}
+	}
+
+	// ----
+	err = d.CreateTable(SimpleStruct{})
+	check_expected_error("missing table name")
+
+	// ----
+	err = d.CreateTable(SimpleStruct{}, Options{
+		TableName: "t_simple",
+		Indexes: []Index{
+			Index{},
+		},
+	})
+	check_expected_error("missing index content")
+
+	// ----
+	err = d.CreateTable(SimpleStruct{}, Options{
+		TableName: "t_simple",
+		Uniques: []Unique{
+			Unique{},
+		},
+	})
+	check_expected_error("missing unique content")
+
+	return
+}
+
+type SimpleStruct struct {
+	ID   int32  `db:"id"   mysqlx:"increment:true"`
+	UUID string `db:"uuid" mysqlx:"type:varchar(32)"`
 }

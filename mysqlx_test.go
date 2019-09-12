@@ -8,7 +8,7 @@ import (
 
 func TestOpen(t *testing.T) {
 	// successfully open
-	db, err := Open(Param{
+	d, err := Open(Param{
 		User:   "travis",
 		DBName: "db_test",
 	})
@@ -17,8 +17,13 @@ func TestOpen(t *testing.T) {
 		return
 	}
 
-	db.KeepAlive()
-	testCreateTable(t, db)
+	d.KeepAlive()
+	defer d.StopKeepAlive()
+
+	testCreateTable(t, d)
+	testCreateNoAutoIncrement(t, d)
+	testCreateTableMiscError(t, d)
+
 	return
 }
 

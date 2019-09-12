@@ -58,7 +58,219 @@ func mergeOptions(v interface{}, opts ...Options) Options {
 			opt.Uniques = opts[0].Uniques
 		}
 	}
+	if nil == opt.Indexes {
+		opt.Indexes = make([]Index, 0)
+	}
+	if nil == opt.Uniques {
+		opt.Uniques = make([]Unique, 0)
+	}
 	return opt
+}
+
+func (d *DB) mysqlCreateTable(fields []*Field, opt *Options) error {
+	// create table
+	var auto_inc_field *Field
+	statements := make([]string, 0, len(fields)+len(opt.Indexes)+len(opt.Uniques)+1)
+
+	// make fields statements
+	for _, f := range fields {
+		comment := strings.Replace(f.Comment, "'", "\\'", -1)
+		null := ""
+		if false == f.Nullable {
+			null = "NOT NULL"
+		}
+		if f.AutoIncrement {
+			auto_inc_field = f
+			f.statement = fmt.Sprintf("`%s` %s %s AUTO_INCREMENT COMMENT '%s'", f.Name, f.Type, null, comment)
+		} else {
+			f.statement = fmt.Sprintf("`%s` %s %s DEFAULT %s COMMENT '%s'", f.Name, f.Type, null, f.Default, comment)
+		}
+
+		// log.Printf("statement: %s\n", f.statement)
+		statements = append(statements, f.statement)
+	}
+
+	// make index statements
+	if auto_inc_field != nil {
+		s := fmt.Sprintf("PRIMARY KEY (`%s`)", auto_inc_field.Name)
+		statements = append(statements, s)
+		// log.Printf("statement: %s\n", s)
+	}
+	for _, idx := range opt.Indexes {
+		if err := idx.Check(); err != nil {
+			return err
+		}
+
+		idx_field_list := make([]string, 0, len(idx.Fields))
+		for _, f := range idx.Fields {
+			idx_field_list = append(idx_field_list, "`"+f+"`")
+		}
+		s := fmt.Sprintf("KEY `%s` (%s)", idx.Name, strings.Join(idx_field_list, ", "))
+		statements = append(statements, s)
+		// log.Printf("statememt: %s\n", s)
+	}
+
+	// make unique statements
+	for _, uniq := range opt.Uniques {
+		if err := uniq.Check(); err != nil {
+			return err
+		}
+
+		uniq_field_list := make([]string, 0, len(uniq.Fields))
+		for _, f := range uniq.Fields {
+			uniq_field_list = append(uniq_field_list, "`"+f+"`")
+		}
+
+		s := fmt.Sprintf("UNIQUE KEY `%s` (%s)", uniq.Name, strings.Join(uniq_field_list, ", "))
+
+		statements = append(statements, s)
+		// log.Printf("statememt: %s\n", s)
+	}
+
+	// package final create statements
+	desc := strings.Replace(opt.TableDescption, "'", "\\'", -1)
+	auto_inc_1 := "AUTO_INCREMENT=1"
+	if nil == auto_inc_field {
+		auto_inc_1 = ""
+	}
+	final := fmt.Sprintf(
+		"CREATE TABLE IF NOT EXISTS `%s` (\n%s\n) ENGINE=InnoDB %s DEFAULT CHARSET=utf8 COMMENT '%s'",
+		opt.TableName,
+		strings.Join(statements, ",\n"),
+		auto_inc_1, desc,
+	)
+
+	// exec
+	// log.Println(final)
+	_, err := d.db.Exec(final)
+	if err != nil {
+		return err
+	} else {
+		return nil
+	}
+}
+
+func (d *DB) mysqlAlterTable(fields []*Field, fieldsInDB []*Field, opt *Options) error {
+	prev_field_map := make(map[string]*Field) // used for AFTER section in ALTER statements
+	var prev_field *Field
+	for _, f := range fields {
+		prev_field_map[f.Name] = prev_field
+		prev_field = f
+	}
+
+	// find missing columns and then alter them
+	fields_in_db_map := convFieldListToMap(fieldsInDB)
+	for _, f := range fields {
+		_, exist := fields_in_db_map[f.Name]
+		if exist {
+			continue
+		}
+
+		// new primary key is not allowed
+		if f.AutoIncrement {
+			return fmt.Errorf("new promary key `%s` (auto increment) is not allowed", f.Name)
+		}
+
+		// not exist? should ALTER
+		var func_insert_field func(*Field) error
+		func_insert_field = func(f *Field) error {
+			comment := strings.Replace(f.Comment, "'", "\\'", -1)
+			null := ""
+			if false == f.Nullable {
+				null = "NOT NULL"
+			}
+
+			prev_field, _ := prev_field_map[f.Name]
+			if prev_field == nil {
+				// this is first column
+				statement := fmt.Sprintf("ALTER TABLE `%s` ADD COLUMN `%s` %s %s DEFAULT %s COMMENT '%s' FIRST", opt.TableName, f.Name, f.Type, null, f.Default, comment)
+				// log.Println(statement)
+				_, err := d.db.Exec(statement)
+				if err != nil {
+					return err
+				} else {
+					fields_in_db_map[f.Name] = f
+					return nil
+				}
+			} else {
+				_, prev_exist_in_db := fields_in_db_map[prev_field.Name]
+				if false == prev_exist_in_db {
+					// previous map has not been inserted
+					err := func_insert_field(prev_field)
+					if err != nil {
+						return err
+					}
+				} else {
+					statement := fmt.Sprintf("ALTER TABLE `%s` ADD COLUMN `%s` %s %s DEFAULT %s COMMENT '%s' AFTER `%s`", opt.TableName, f.Name, f.Type, null, f.Default, comment, prev_field.Name)
+					// log.Println(statement)
+					_, err := d.db.Exec(statement)
+					if err != nil {
+						return err
+					} else {
+						fields_in_db_map[f.Name] = f
+						return nil
+					}
+				}
+			}
+			return nil
+		}
+		err := func_insert_field(f)
+		if err != nil {
+			return err
+		}
+	}
+
+	// read index and uniques
+	index_in_db, uniq_in_db, err := d.ReadTableIndexes(opt.TableName)
+	if err != nil {
+		return err
+	}
+
+	// add indexes
+	for _, idx := range opt.Indexes {
+		if err := idx.Check(); err != nil {
+			return err
+		}
+
+		if _, exist := index_in_db[idx.Name]; exist {
+			continue
+		}
+
+		idx_field_list := make([]string, 0, len(idx.Fields))
+		for _, f := range idx.Fields {
+			idx_field_list = append(idx_field_list, "`"+f+"`")
+		}
+		s := fmt.Sprintf("ALTER TABLE `%s` ADD INDEX `%s` (%s)", opt.TableName, idx.Name, strings.Join(idx_field_list, ", "))
+
+		_, err := d.db.Exec(s)
+		if err != nil {
+			return err
+		}
+	}
+
+	// add uniques
+	for _, uniq := range opt.Uniques {
+		if err := uniq.Check(); err != nil {
+			return err
+		}
+
+		if _, exist := uniq_in_db[uniq.Name]; exist {
+			continue
+		}
+
+		uniq_field_list := make([]string, 0, len(uniq.Fields))
+		for _, f := range uniq.Fields {
+			uniq_field_list = append(uniq_field_list, "`"+f+"`")
+		}
+		s := fmt.Sprintf("ALTER TABLE `%s` ADD UNIQUE `%s` (%s)", opt.TableName, uniq.Name, strings.Join(uniq_field_list, ", "))
+
+		_, err := d.db.Exec(s)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (d *DB) CreateTable(v interface{}, opts ...Options) error {
@@ -81,16 +293,8 @@ func (d *DB) CreateTable(v interface{}, opts ...Options) error {
 		return err
 	}
 
-	prev_field_map := make(map[string]*Field) // used for AFTER section in ALTER statements
-	var prev_field *Field
-	for _, f := range fields {
-		prev_field_map[f.Name] = prev_field
-		prev_field = f
-	}
-
+	// read fields and check if table exists
 	should_create := false
-
-	// Firstly, read fields and check if table exists
 	fields_in_db, err := d.ReadTableFields(opt.TableName)
 	if err != nil {
 		if false == strings.Contains(err.Error(), "doesn't exist") {
@@ -103,212 +307,10 @@ func (d *DB) CreateTable(v interface{}, opts ...Options) error {
 
 	// create or alter fields
 	if should_create || nil == fields_in_db {
-		// create table
-		var auto_inc_field *Field
-		statements := make([]string, 0, len(fields)+len(opt.Indexes)+len(opt.Uniques)+1)
-
-		// make fields statements
-		for _, f := range fields {
-			comment := strings.Replace(f.Comment, "'", "\\'", -1)
-			null := ""
-			if false == f.Nullable {
-				null = "NOT NULL"
-			}
-			if f.AutoIncrement {
-				auto_inc_field = f
-				f.statement = fmt.Sprintf("`%s` %s %s AUTO_INCREMENT COMMENT '%s'", f.Name, f.Type, null, comment)
-			} else {
-				f.statement = fmt.Sprintf("`%s` %s %s DEFAULT %s COMMENT '%s'", f.Name, f.Type, null, f.Default, comment)
-			}
-
-			// log.Printf("statement: %s\n", f.statement)
-			statements = append(statements, f.statement)
-		}
-
-		// make index statements
-		if auto_inc_field != nil {
-			s := fmt.Sprintf("PRIMARY KEY (`%s`)", auto_inc_field.Name)
-			statements = append(statements, s)
-			// log.Printf("statement: %s\n", s)
-		}
-
-		if opt.Indexes != nil && len(opt.Indexes) > 0 {
-			for _, idx := range opt.Indexes {
-				if err := idx.Check(); err != nil {
-					return err
-				}
-
-				idx_field_list := make([]string, 0, len(idx.Fields))
-				for _, f := range idx.Fields {
-					idx_field_list = append(idx_field_list, "`"+f+"`")
-				}
-				s := fmt.Sprintf("KEY `%s` (%s)", idx.Name, strings.Join(idx_field_list, ", "))
-				statements = append(statements, s)
-				// log.Printf("statememt: %s\n", s)
-			}
-		}
-
-		// make unique statements
-		if opt.Uniques != nil && len(opt.Uniques) > 0 {
-			for _, uniq := range opt.Uniques {
-				if err := uniq.Check(); err != nil {
-					return err
-				}
-
-				uniq_field_list := make([]string, 0, len(uniq.Fields))
-				for _, f := range uniq.Fields {
-					uniq_field_list = append(uniq_field_list, "`"+f+"`")
-				}
-
-				s := fmt.Sprintf("UNIQUE KEY `%s` (%s)", uniq.Name, strings.Join(uniq_field_list, ", "))
-
-				statements = append(statements, s)
-				// log.Printf("statememt: %s\n", s)
-			}
-		}
-
-		// package final create statements
-		desc := strings.Replace(opt.TableDescption, "'", "\\'", -1)
-		auto_inc_1 := "AUTO_INCREMENT=1"
-		if nil == auto_inc_field {
-			auto_inc_1 = ""
-		}
-		final := fmt.Sprintf(
-			"CREATE TABLE IF NOT EXISTS `%s` (\n%s\n) ENGINE=InnoDB %s DEFAULT CHARSET=utf8 COMMENT '%s'",
-			opt.TableName,
-			strings.Join(statements, ",\n"),
-			auto_inc_1, desc,
-		)
-
-		// exec
-		// log.Println(final)
-		_, err := d.db.Exec(final)
-		if err != nil {
-			return err
-		} else {
-			return nil
-		}
-
+		return d.mysqlCreateTable(fields, &opt)
 	} else {
 		// check and alter fields
-		// find missing columns and then alter them
-		fields_in_db_map := convFieldListToMap(fields_in_db)
-		for _, f := range fields {
-			_, exist := fields_in_db_map[f.Name]
-			if exist {
-				continue
-			}
-
-			// new primary key is not allowed
-			if f.AutoIncrement {
-				return fmt.Errorf("new promary key `%s` (auto increment) is not allowed", f.Name)
-			}
-
-			// not exist? should ALTER
-			var func_insert_field func(*Field) error
-			func_insert_field = func(f *Field) error {
-				comment := strings.Replace(f.Comment, "'", "\\'", -1)
-				null := ""
-				if false == f.Nullable {
-					null = "NOT NULL"
-				}
-
-				prev_field, _ := prev_field_map[f.Name]
-				if prev_field == nil {
-					// this is first column
-					statement := fmt.Sprintf("ALTER TABLE `%s` ADD COLUMN `%s` %s %s DEFAULT %s COMMENT '%s' FIRST", opt.TableName, f.Name, f.Type, null, f.Default, comment)
-					// log.Println(statement)
-					_, err := d.db.Exec(statement)
-					if err != nil {
-						return err
-					} else {
-						fields_in_db_map[f.Name] = f
-						return nil
-					}
-				} else {
-					_, prev_exist_in_db := fields_in_db_map[prev_field.Name]
-					if false == prev_exist_in_db {
-						// previous map has not been inserted
-						err := func_insert_field(prev_field)
-						if err != nil {
-							return err
-						}
-					} else {
-						statement := fmt.Sprintf("ALTER TABLE `%s` ADD COLUMN `%s` %s %s DEFAULT %s COMMENT '%s' AFTER `%s`", opt.TableName, f.Name, f.Type, null, f.Default, comment, prev_field.Name)
-						// log.Println(statement)
-						_, err := d.db.Exec(statement)
-						if err != nil {
-							return err
-						} else {
-							fields_in_db_map[f.Name] = f
-							return nil
-						}
-					}
-				}
-				return nil
-			}
-			err := func_insert_field(f)
-			if err != nil {
-				return err
-			}
-		}
-
-		// read index and uniques
-		index_in_db, uniq_in_db, err := d.ReadTableIndexes(opt.TableName)
-		if err != nil {
-			return err
-		}
-
-		// add indexes
-		if opt.Indexes != nil && len(opt.Indexes) > 0 {
-			for _, idx := range opt.Indexes {
-				if err := idx.Check(); err != nil {
-					return err
-				}
-
-				if _, exist := index_in_db[idx.Name]; exist {
-					continue
-				}
-
-				idx_field_list := make([]string, 0, len(idx.Fields))
-				for _, f := range idx.Fields {
-					idx_field_list = append(idx_field_list, "`"+f+"`")
-				}
-				s := fmt.Sprintf("ALTER TABLE `%s` ADD INDEX `%s` (%s)", opt.TableName, idx.Name, strings.Join(idx_field_list, ", "))
-
-				_, err := d.db.Exec(s)
-				if err != nil {
-					return err
-				}
-			}
-		}
-
-		// add uniques
-		if opt.Uniques != nil && len(opt.Uniques) > 0 {
-			for _, uniq := range opt.Uniques {
-				if err := uniq.Check(); err != nil {
-					return err
-				}
-
-				if _, exist := uniq_in_db[uniq.Name]; exist {
-					continue
-				}
-
-				uniq_field_list := make([]string, 0, len(uniq.Fields))
-				for _, f := range uniq.Fields {
-					uniq_field_list = append(uniq_field_list, "`"+f+"`")
-				}
-				s := fmt.Sprintf("ALTER TABLE `%s` ADD UNIQUE `%s` (%s)", opt.TableName, uniq.Name, strings.Join(uniq_field_list, ", "))
-
-				_, err := d.db.Exec(s)
-				if err != nil {
-					return err
-				}
-			}
-		}
-		// TODO:
-
-		return nil
+		return d.mysqlAlterTable(fields, fields_in_db, &opt)
 	}
 }
 
@@ -337,7 +339,6 @@ func readStructFields(t reflect.Type, v reflect.Value) (ret []*Field, err error)
 			}
 		}
 
-		// log.Printf("%02d - name %s, type: %v\n", i, tf.Name, tf.Type.Kind())
 		switch tf.Type.Kind() {
 		case reflect.Int64:
 			field_type = getFieldType(&tf, "bigint")

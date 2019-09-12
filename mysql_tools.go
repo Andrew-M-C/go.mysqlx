@@ -108,21 +108,23 @@ func (d *DB) InsertFields(s interface{}) (keys []string, values []string, err er
 			keys = append(keys, "`"+field_name+"`")
 			values = append(values, fmt.Sprintf("%f", vf.Float()))
 		case reflect.Struct:
-			keys = append(keys, "`"+field_name+"`")
 			switch tf.Type.String() {
 			case "sql.NullString":
+				keys = append(keys, "`"+field_name+"`")
 				if vf.Field(1).Bool() {
 					values = append(values, addQuoteToString(vf.Field(0).String(), "'"))
 				} else {
 					values = append(values, "NULL")
 				}
 			case "sql.NullInt64":
+				keys = append(keys, "`"+field_name+"`")
 				if vf.Field(1).Bool() {
 					values = append(values, strconv.FormatInt(vf.Field(0).Int(), 10))
 				} else {
 					values = append(values, "NULL")
 				}
 			case "sql.NullBool":
+				keys = append(keys, "`"+field_name+"`")
 				if vf.Field(1).Bool() {
 					if vf.Field(0).Bool() {
 						values = append(values, "TRUE")
@@ -133,18 +135,21 @@ func (d *DB) InsertFields(s interface{}) (keys []string, values []string, err er
 					values = append(values, "NULL")
 				}
 			case "sql.NullFloat64":
+				keys = append(keys, "`"+field_name+"`")
 				if vf.Field(1).Bool() {
 					values = append(values, fmt.Sprintf("%f", vf.Field(0).Float()))
 				} else {
 					values = append(values, "NULL")
 				}
 			case "mysql.NullTime":
+				keys = append(keys, "`"+field_name+"`")
 				if vf.Field(1).Bool() {
 					values = append(values, convTimeToString(vf.Field(0).Interface().(time.Time), field_map, field_name))
 				} else {
 					values = append(values, "NULL")
 				}
 			case "time.Time":
+				keys = append(keys, "`"+field_name+"`")
 				values = append(values, convTimeToString(vf.Interface().(time.Time), field_map, field_name))
 			default:
 				// log.Println("Embedded struct: ", tf.Type)
@@ -177,6 +182,7 @@ func (d *DB) Insert(v interface{}, opts ...Options) (lastInsertId int64, err err
 	}
 
 	query := fmt.Sprintf("INSERT INTO `%s` (%s) VALUES (%s)", opt.TableName, strings.Join(keys, ", "), strings.Join(values, ", "))
+	// log.Println(query)
 	res, err := d.db.Exec(query)
 	if err != nil {
 		return -1, err
