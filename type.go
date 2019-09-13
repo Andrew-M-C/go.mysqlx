@@ -81,3 +81,20 @@ type Options struct {
 	Indexes        []Index
 	Uniques        []Unique
 }
+
+// MySQL statement tools
+type Page struct {
+	Offset int
+	Limit  int
+}
+
+type Cond struct {
+	Param    string
+	Operator string
+	Value    interface{}
+}
+
+type Order struct {
+	Param string
+	Seq   string
+}

@@ -67,12 +67,12 @@ func Open(param Param) (ret *DB, err error) {
 	var uri string
 	if "" == param.Pass {
 		uri = fmt.Sprintf(
-			"'%s'@tcp(%s:%d)/%s",
+			"'%s'@tcp(%s:%d)/%s?charset=utf8&parseTime=true",
 			param.User, param.Host, param.Port, param.DBName,
 		)
 	} else {
 		uri = fmt.Sprintf(
-			"'%s':'%s'@tcp(%s:%d)/%s",
+			"'%s':'%s'@tcp(%s:%d)/%s?charset=utf8&parseTime=true",
 			param.User, param.Pass, param.Host, param.Port, param.DBName,
 		)
 	}

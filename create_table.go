@@ -2,10 +2,14 @@ package mysqlx
 
 import (
 	"bytes"
+	"database/sql"
 	"fmt"
+	"time"
 
 	"reflect"
 	"strings"
+
+	"github.com/go-sql-driver/mysql"
 )
 
 type OptionInterface interface {
@@ -339,56 +343,56 @@ func readStructFields(t reflect.Type, v reflect.Value) (ret []*Field, err error)
 			}
 		}
 
-		switch tf.Type.Kind() {
-		case reflect.Int64:
+		switch vf.Interface().(type) {
+		case int64:
 			field_type = getFieldType(&tf, "bigint")
 			field_null = getFieldNullable(&tf, false)
 			field_dflt = getFieldDefault(&tf, Integer, field_null)
 			field_incr = getFieldAutoIncrement(&tf, false)
 			field_comt = getFieldComment(&tf)
-		case reflect.Uint64:
+		case uint64:
 			field_type = getFieldType(&tf, "bigint unsigned")
 			field_null = getFieldNullable(&tf, false)
 			field_dflt = getFieldDefault(&tf, Integer, field_null)
 			field_incr = getFieldAutoIncrement(&tf, false)
 			field_comt = getFieldComment(&tf)
-		case reflect.Int, reflect.Int32:
+		case int, int32:
 			field_type = getFieldType(&tf, "int")
 			field_null = getFieldNullable(&tf, false)
 			field_dflt = getFieldDefault(&tf, Integer, field_null)
 			field_incr = getFieldAutoIncrement(&tf, false)
 			field_comt = getFieldComment(&tf)
-		case reflect.Uint, reflect.Uint32:
+		case uint, uint32:
 			field_type = getFieldType(&tf, "int unsigned")
 			field_null = getFieldNullable(&tf, false)
 			field_dflt = getFieldDefault(&tf, Integer, field_null)
 			field_incr = getFieldAutoIncrement(&tf, false)
 			field_comt = getFieldComment(&tf)
-		case reflect.Int16:
+		case int16:
 			field_type = getFieldType(&tf, "smallint")
 			field_null = getFieldNullable(&tf, false)
 			field_dflt = getFieldDefault(&tf, Integer, field_null)
 			field_incr = getFieldAutoIncrement(&tf, false)
 			field_comt = getFieldComment(&tf)
-		case reflect.Uint16:
+		case uint16:
 			field_type = getFieldType(&tf, "smallint unsigned")
 			field_null = getFieldNullable(&tf, false)
 			field_dflt = getFieldDefault(&tf, Integer, field_null)
 			field_incr = getFieldAutoIncrement(&tf, false)
 			field_comt = getFieldComment(&tf)
-		case reflect.Int8:
+		case int8:
 			field_type = getFieldType(&tf, "tinyint")
 			field_null = getFieldNullable(&tf, false)
 			field_dflt = getFieldDefault(&tf, Integer, field_null)
 			field_incr = getFieldAutoIncrement(&tf, false)
 			field_comt = getFieldComment(&tf)
-		case reflect.Uint8:
+		case uint8:
 			field_type = getFieldType(&tf, "tinyint unsigned")
 			field_null = getFieldNullable(&tf, false)
 			field_dflt = getFieldDefault(&tf, Integer, field_null)
 			field_incr = getFieldAutoIncrement(&tf, false)
 			field_comt = getFieldComment(&tf)
-		case reflect.String:
+		case string:
 			field_type = getFieldType(&tf, "")
 			field_null = getFieldNullable(&tf, false)
 			field_dflt = getFieldDefault(&tf, String, field_null)
@@ -397,13 +401,13 @@ func readStructFields(t reflect.Type, v reflect.Value) (ret []*Field, err error)
 			if "" == field_type {
 				return nil, fmt.Errorf("missing type tag for string field '%s'", field_name)
 			}
-		case reflect.Bool:
+		case bool:
 			field_type = getFieldType(&tf, "boolean")
 			field_null = getFieldNullable(&tf, false)
 			field_dflt = getFieldDefault(&tf, Bool, field_null)
 			field_incr = false
 			field_comt = getFieldComment(&tf)
-		case reflect.Float32, reflect.Float64:
+		case float32, float64:
 			field_type = getFieldType(&tf, "")
 			field_null = getFieldNullable(&tf, false)
 			field_dflt = getFieldDefault(&tf, Float, field_null)
@@ -412,51 +416,50 @@ func readStructFields(t reflect.Type, v reflect.Value) (ret []*Field, err error)
 			if "" == field_type {
 				return nil, fmt.Errorf("missing type tag for float field '%s'", field_name)
 			}
-		case reflect.Struct:
-			switch tf.Type.String() {
-			case "sql.NullString":
-				field_type = getFieldType(&tf, "")
-				field_null = getFieldNullable(&tf, true)
-				field_dflt = getFieldDefault(&tf, String, field_null)
-				field_incr = false
-				field_comt = getFieldComment(&tf)
-				if "" == field_type {
-					return nil, fmt.Errorf("missing type tag for sql.NullString field '%s'", field_name)
-				}
-			case "sql.NullInt64":
-				field_type = getFieldType(&tf, "bigint")
-				field_null = getFieldNullable(&tf, true)
-				field_dflt = getFieldDefault(&tf, Integer, field_null)
-				field_incr = getFieldAutoIncrement(&tf, false)
-				field_comt = getFieldComment(&tf)
-			case "sql.NullBool":
-				field_type = getFieldType(&tf, "boolean")
-				field_null = getFieldNullable(&tf, true)
-				field_dflt = getFieldDefault(&tf, Bool, field_null)
-				field_incr = getFieldAutoIncrement(&tf, false)
-				field_comt = getFieldComment(&tf)
-			case "sql.NullFloat64":
-				field_type = getFieldType(&tf, "")
-				field_null = getFieldNullable(&tf, true)
-				field_dflt = getFieldDefault(&tf, Float, field_null)
-				field_incr = getFieldAutoIncrement(&tf, false)
-				field_comt = getFieldComment(&tf)
-				if "" == field_type {
-					return nil, fmt.Errorf("missing type tag for sql.NullFloat64 field '%s'", field_name)
-				}
-			case "mysql.NullTime":
-				field_type = getFieldType(&tf, "datetime")
-				field_null = getFieldNullable(&tf, true)
-				field_dflt = getFieldDefault(&tf, DateTime, field_null, field_type)
-				field_incr = getFieldAutoIncrement(&tf, false)
-				field_comt = getFieldComment(&tf)
-			case "time.Time":
-				field_type = getFieldType(&tf, "datetime")
-				field_null = getFieldNullable(&tf, false)
-				field_dflt = getFieldDefault(&tf, DateTime, field_null, field_type)
-				field_incr = getFieldAutoIncrement(&tf, false)
-				field_comt = getFieldComment(&tf)
-			default:
+		case sql.NullString:
+			field_type = getFieldType(&tf, "")
+			field_null = getFieldNullable(&tf, true)
+			field_dflt = getFieldDefault(&tf, String, field_null)
+			field_incr = false
+			field_comt = getFieldComment(&tf)
+			if "" == field_type {
+				return nil, fmt.Errorf("missing type tag for sql.NullString field '%s'", field_name)
+			}
+		case sql.NullInt64:
+			field_type = getFieldType(&tf, "bigint")
+			field_null = getFieldNullable(&tf, true)
+			field_dflt = getFieldDefault(&tf, Integer, field_null)
+			field_incr = getFieldAutoIncrement(&tf, false)
+			field_comt = getFieldComment(&tf)
+		case sql.NullBool:
+			field_type = getFieldType(&tf, "boolean")
+			field_null = getFieldNullable(&tf, true)
+			field_dflt = getFieldDefault(&tf, Bool, field_null)
+			field_incr = getFieldAutoIncrement(&tf, false)
+			field_comt = getFieldComment(&tf)
+		case sql.NullFloat64:
+			field_type = getFieldType(&tf, "")
+			field_null = getFieldNullable(&tf, true)
+			field_dflt = getFieldDefault(&tf, Float, field_null)
+			field_incr = getFieldAutoIncrement(&tf, false)
+			field_comt = getFieldComment(&tf)
+			if "" == field_type {
+				return nil, fmt.Errorf("missing type tag for sql.NullFloat64 field '%s'", field_name)
+			}
+		case mysql.NullTime:
+			field_type = getFieldType(&tf, "datetime")
+			field_null = getFieldNullable(&tf, true)
+			field_dflt = getFieldDefault(&tf, DateTime, field_null, field_type)
+			field_incr = getFieldAutoIncrement(&tf, false)
+			field_comt = getFieldComment(&tf)
+		case time.Time:
+			field_type = getFieldType(&tf, "datetime")
+			field_null = getFieldNullable(&tf, false)
+			field_dflt = getFieldDefault(&tf, DateTime, field_null, field_type)
+			field_incr = getFieldAutoIncrement(&tf, false)
+			field_comt = getFieldComment(&tf)
+		default:
+			if tf.Type.Kind() == reflect.Struct {
 				// log.Println("Embedded struct: ", tf.Type)
 				sub_fields, err := readStructFields(tf.Type, vf)
 				if err != nil {
@@ -464,21 +467,13 @@ func readStructFields(t reflect.Type, v reflect.Value) (ret []*Field, err error)
 				}
 				ret = append(ret, sub_fields...)
 				continue
+			} else {
+				// log.Printf("unrecognized type %v\n", tf.Type.Kind())
+				continue
 			}
-		default:
-			// log.Printf("unrecognized type %v\n", tf.Type.Kind())
-			continue
-			// go on below
 		}
 
 		// done
-		// // log.Printf("%02d - Got tag name: %s\n", i, field_name)
-		// // log.Printf("     Got tag type: %s\n", field_type)
-		// // log.Printf("     Got tag null: %v\n", field_null)
-		// // log.Printf("     Got tag dflt: %v\n", field_dflt)
-		// // log.Printf("     Got tag incr: %v\n", field_incr)
-		// // log.Printf("     Got tag comt: %v\n", field_comt)
-
 		ret = append(ret, &Field{
 			Name:          field_name,
 			Type:          field_type,
