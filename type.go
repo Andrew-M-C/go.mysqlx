@@ -83,9 +83,12 @@ type Options struct {
 }
 
 // MySQL statement tools
-type Page struct {
+type Offset struct {
 	Offset int
-	Limit  int
+}
+
+type Limit struct {
+	Limit int
 }
 
 type Cond struct {

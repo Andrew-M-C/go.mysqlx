@@ -80,7 +80,7 @@ func TestQuery(t *testing.T) {
 	new_disney.FirstName = sql.NullString{Valid: true, String: "Walter"}
 	new_disney.MiddleName = sql.NullString{Valid: true, String: "Elias"}
 	new_disney.FamilyName = sql.NullString{Valid: true, String: "Disney"}
-	new_disney.FullName = "Walter Elias Disney"
+	new_disney.FullName = "Walter Disney"
 	new_disney.Gender = "Male"
 	new_disney.BirthDate = time.Date(1901, 12, 5, 0, 0, 0, 0, time.UTC)
 	new_disney.Nationality = "U.S."
@@ -109,7 +109,7 @@ func TestQuery(t *testing.T) {
 		FirstName:       sql.NullString{Valid: true, String: "Diane"},
 		MiddleName:      sql.NullString{Valid: true, String: "Disney"},
 		FamilyName:      sql.NullString{Valid: true, String: "Miller"},
-		FullName:        "Diane Disney Miller",
+		FullName:        "Diane Miller",
 		Gender:          "Female",
 		BirthDate:       time.Date(1933, 4, 17, 0, 0, 0, 0, time.UTC),
 		Nationality:     "U.S.",
@@ -124,6 +124,7 @@ func TestQuery(t *testing.T) {
 	t.Logf("Keys: %v", keys)
 	t.Logf("Vals: %v", values)
 
+	// insert struct
 	for _ = range make([]int, 3) {
 		id, err = db.Insert(new_user)
 		if err != nil {
@@ -132,6 +133,13 @@ func TestQuery(t *testing.T) {
 		t.Logf("inserted id: %d", id)
 	}
 
+	// insert pointer
+	id, err = db.Insert(new_user)
+	if err != nil {
+		return
+	}
+	t.Logf("inserted id: %d", id)
+
 	// select
 	var result []Disney
 	err = db.Select(
@@ -139,7 +147,7 @@ func TestQuery(t *testing.T) {
 		Cond{"family_name", "<>", "Disney"},
 		Cond{"die_time", "=", nil}, // for MySQL NULL, should be "IS" or "IS NOT", but here er make some compatibility
 		Cond{"birth_date", ">=", time.Date(1910, 1, 1, 0, 0, 0, 0, time.UTC)},
-		Page{Offset: 1, Limit: 2},
+		Offset{1}, Limit{2},
 	)
 	if err != nil {
 		t.Errorf("select disney error: %v", err)

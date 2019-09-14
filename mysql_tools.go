@@ -101,7 +101,8 @@ func (d *DB) Select(dst interface{}, args ...interface{}) error {
 
 	// parse arguments
 	opt := mergeOptions(prototype)
-	page := Page{}
+	offset := 0
+	limit := 0
 	cond_list := make([]string, 0, len(args))
 	order_list := make([]string, 0, len(args))
 
@@ -114,10 +115,14 @@ func (d *DB) Select(dst interface{}, args ...interface{}) error {
 			opt = mergeOptions(prototype, *(arg.(*Options)))
 		case Options:
 			opt = mergeOptions(prototype, arg.(Options))
-		case Page:
-			page = arg.(Page)
-		case *Page:
-			page = *(arg.(*Page))
+		case Limit:
+			limit = arg.(Limit).Limit
+		case *Limit:
+			limit = arg.(*Limit).Limit
+		case Offset:
+			offset = arg.(Offset).Offset
+		case *Offset:
+			offset = arg.(*Offset).Offset
 		case Cond:
 			cond := arg.(Cond)
 			c := packCond(&cond, field_map)
@@ -152,13 +157,13 @@ func (d *DB) Select(dst interface{}, args ...interface{}) error {
 
 	// pack SELECT statements
 	var offset_str string
-	if page.Offset > 0 {
-		offset_str = fmt.Sprintf("OFFSET %d", page.Offset)
+	if offset > 0 {
+		offset_str = fmt.Sprintf("OFFSET %d", offset)
 	}
 
 	var limit_str string
-	if page.Limit > 0 {
-		limit_str = fmt.Sprintf("LIMIT %d", page.Limit)
+	if limit > 0 {
+		limit_str = fmt.Sprintf("LIMIT %d", limit)
 	}
 
 	var order_str string
@@ -384,6 +389,20 @@ func (d *DB) InsertFields(s interface{}) (keys []string, values []string, err er
 func (d *DB) Insert(v interface{}, opts ...Options) (lastInsertId int64, err error) {
 	if nil == d.db {
 		return -1, fmt.Errorf("nil *sqlx.DB")
+	}
+
+	// Should be *Xxx or Xxx
+	ty := reflect.TypeOf(v)
+	va := reflect.ValueOf(v)
+	// log.Printf("%v - %v\n", ty, ty.Kind())
+	if reflect.Ptr == ty.Kind() {
+		v = va.Elem().Interface()
+		ty = reflect.TypeOf(v)
+		va = reflect.ValueOf(v)
+	}
+
+	if reflect.Struct != ty.Kind() {
+		return -1, fmt.Errorf("parameter type invalid (%v)", ty)
 	}
 
 	keys, values, err := d.InsertFields(v)
