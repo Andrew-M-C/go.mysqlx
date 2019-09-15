@@ -158,5 +158,27 @@ func TestQuery(t *testing.T) {
 	} else {
 		t.Logf("Get %d response(s)", len(result))
 	}
+
+	// update
+	res, err := db.Update(
+		Disney{}, map[string]interface{}{
+			"die_time": time.Date(2013, 9, 19, 0, 0, 0, 0, time.UTC),
+			"is_boss":  true,
+		},
+		Cond{"first_name", "=", "Diane"},
+		Cond{"family_name", "=", "Miller"},
+		Limit{1},
+	)
+	if err != nil {
+		t.Errorf("Update failed: %v", err)
+		return
+	}
+
+	affected, err := res.RowsAffected()
+	if err != nil {
+		t.Errorf("read RowsAffected error: %v", err)
+		return
+	}
+	t.Logf("affected row(s): %d", affected)
 	return
 }

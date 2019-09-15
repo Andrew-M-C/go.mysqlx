@@ -17,7 +17,8 @@ var (
 	_datetime_regex = regexp.MustCompile(`^datetime(\d)$`)
 )
 
-// tools for MySQL SELECT
+// ========
+// SELECT
 func (d *DB) SelectFields(s interface{}) (string, error) {
 	// TODO: read interface until we get a struct
 
@@ -250,7 +251,8 @@ func packCond(c *Cond, fieldMap map[string]*Field) string {
 	return fmt.Sprintf("`%s` %s %s", c.Param, c.Operator, val_str)
 }
 
-// tools for MySQL INSERT
+// ========
+// INSERT
 func (d *DB) InsertFields(s interface{}) (keys []string, values []string, err error) {
 	t := reflect.TypeOf(s)
 	v := reflect.ValueOf(s)
@@ -463,4 +465,137 @@ func convTimeToString(t time.Time, fieldMap map[string]*Field, fieldName string)
 			return "NULL"
 		}
 	}
+}
+
+// ========
+// UPDATE
+func (d *DB) Update(prototype interface{}, fields map[string]interface{}, args ...interface{}) (sql.Result, error) {
+	if nil == d.db {
+		return nil, fmt.Errorf("nil *sqlx.DB")
+	}
+	if nil == fields || 0 == len(fields) {
+		return nil, fmt.Errorf("nil fields")
+	}
+
+	// Should be *Xxx or Xxx
+	ty := reflect.TypeOf(prototype)
+	va := reflect.ValueOf(prototype)
+	// log.Printf("%v - %v\n", ty, ty.Kind())
+	if reflect.Ptr == ty.Kind() {
+		prototype = va.Elem().Interface()
+		ty = reflect.TypeOf(prototype)
+		va = reflect.ValueOf(prototype)
+	}
+
+	if reflect.Struct != ty.Kind() {
+		return nil, fmt.Errorf("parameter type invalid (%v)", ty)
+	}
+
+	intf_name := reflect.TypeOf(prototype)
+	var field_map map[string]*Field
+	if field_map_value, exist := d.bufferedFieldMaps.Load(intf_name); exist {
+		field_map = field_map_value.(map[string]*Field)
+	} else {
+		field_map = make(map[string]*Field)
+		fields, err := d.ReadStructFields(prototype)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, f := range fields {
+			field_map[f.Name] = f
+		}
+		d.bufferedFieldMaps.Store(intf_name, field_map)
+	}
+
+	opt := mergeOptions(prototype)
+	kv := make([]string, 0, len(fields))
+	cond_list := make([]string, 0, len(args))
+	limit_str := ""
+
+	// handle fields
+	for k, v := range fields {
+		if "" == k {
+			continue
+		}
+		_, exist := field_map[k]
+		if false == exist {
+			return nil, fmt.Errorf("field '%s' not recognized", k)
+		}
+		switch v.(type) {
+		case int, int64, int32, int16, int8:
+			n := reflect.ValueOf(v).Int()
+			kv = append(kv, fmt.Sprintf("`%s` = %d", k, n))
+		case uint, uint64, uint32, uint16, uint8:
+			u := reflect.ValueOf(v).Uint()
+			kv = append(kv, fmt.Sprintf("`%s` = %d", k, u))
+		case bool:
+			if v.(bool) {
+				kv = append(kv, "`"+k+"`"+" = TRUE")
+			} else {
+				kv = append(kv, "`"+k+"`"+" = FALSE")
+			}
+		case float32, float64:
+			f := reflect.ValueOf(v).Float()
+			kv = append(kv, fmt.Sprintf("`%s` = %f", k, f))
+		case string:
+			s := v.(string)
+			kv = append(kv, "`"+k+"`"+" = "+addQuoteToString(s, "'"))
+		case time.Time:
+			t := v.(time.Time)
+			val_str := convTimeToString(t, field_map, k)
+			kv = append(kv, "`"+k+"`"+" = "+val_str)
+		case nil:
+			kv = append(kv, "`"+k+"`"+" = NULL")
+		}
+	}
+
+	// TODO: handle arguments
+	for _, arg := range args {
+		switch arg.(type) {
+		default:
+			t := reflect.TypeOf(arg)
+			return nil, fmt.Errorf("unpupported type %v", t)
+		case *Options:
+			opt = mergeOptions(prototype, *(arg.(*Options)))
+		case Options:
+			opt = mergeOptions(prototype, arg.(Options))
+		case Limit:
+			l := arg.(Limit).Limit
+			if l > 0 {
+				limit_str = "LIMIT " + strconv.Itoa(l)
+			}
+		case *Limit:
+			l := arg.(Limit).Limit
+			if l > 0 {
+				limit_str = "LIMIT " + strconv.Itoa(l)
+			}
+		case Cond:
+			cond := arg.(Cond)
+			c := packCond(&cond, field_map)
+			if "" != c {
+				cond_list = append(cond_list, c)
+			}
+		case *Cond:
+			cond := arg.(*Cond)
+			c := packCond(cond, field_map)
+			if "" != c {
+				cond_list = append(cond_list, c)
+			}
+		}
+	}
+
+	if "" == opt.TableName {
+		return nil, fmt.Errorf("empty table name for type %v", reflect.TypeOf(prototype))
+	}
+
+	if 0 == len(kv) {
+		return nil, fmt.Errorf("no value specified")
+	}
+
+	cond_str := "WHERE " + strings.Join(cond_list, " AND ")
+	query := fmt.Sprintf("UPDATE `%s` SET %s %s %s", opt.TableName, strings.Join(kv, ", "), cond_str, limit_str)
+	// log.Println(query)
+
+	return d.db.Exec(query)
 }
