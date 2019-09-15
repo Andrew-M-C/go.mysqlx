@@ -45,6 +45,82 @@ func (d *DB) SelectFields(s interface{}) (string, error) {
 	return ret, nil
 }
 
+func (d *DB) handleArgs(prototype interface{}, args []interface{}) (
+	fieldMap map[string]*Field, opt Options, offset int, limit int, condList []string, orderList []string, err error) {
+
+	intf_name := reflect.TypeOf(prototype)
+	if field_map_value, exist := d.bufferedFieldMaps.Load(intf_name); exist {
+		fieldMap = field_map_value.(map[string]*Field)
+	} else {
+		fieldMap = make(map[string]*Field)
+		var fields []*Field
+		fields, err = d.ReadStructFields(prototype)
+		if err != nil {
+			return
+		}
+
+		for _, f := range fields {
+			fieldMap[f.Name] = f
+		}
+		d.bufferedFieldMaps.Store(intf_name, fieldMap)
+	}
+
+	opt = mergeOptions(prototype)
+	condList = make([]string, 0, len(args))
+	orderList = make([]string, 0, len(args))
+
+	for _, arg := range args {
+		switch arg.(type) {
+		default:
+			t := reflect.TypeOf(arg)
+			err = fmt.Errorf("unsupported type %v", t)
+			return
+		case *Options:
+			opt = mergeOptions(prototype, *(arg.(*Options)))
+		case Options:
+			opt = mergeOptions(prototype, arg.(Options))
+		case Limit:
+			limit = arg.(Limit).Limit
+		case *Limit:
+			limit = arg.(*Limit).Limit
+		case Offset:
+			offset = arg.(Offset).Offset
+		case *Offset:
+			offset = arg.(*Offset).Offset
+		case Cond:
+			cond := arg.(Cond)
+			c := packCond(&cond, fieldMap)
+			if "" != c {
+				condList = append(condList, c)
+			}
+		case *Cond:
+			cond := arg.(*Cond)
+			c := packCond(cond, fieldMap)
+			if "" != c {
+				condList = append(condList, c)
+			}
+		case Order:
+			order := arg.(Order)
+			o := packOrder(&order)
+			if "" != o {
+				orderList = append(orderList, o)
+			}
+		case *Order:
+			order := arg.(*Order)
+			o := packOrder(order)
+			if "" != o {
+				orderList = append(orderList, o)
+			}
+		}
+	}
+
+	if "" == opt.TableName {
+		err = fmt.Errorf("nil table name")
+		return
+	}
+	return
+}
+
 func (d *DB) Select(dst interface{}, args ...interface{}) error {
 	if nil == d.db {
 		return fmt.Errorf("mysqlx not initialized")
@@ -82,78 +158,10 @@ func (d *DB) Select(dst interface{}, args ...interface{}) error {
 		return err
 	}
 
-	// log.Println(fields_str)
-	intf_name := reflect.TypeOf(prototype)
-	var field_map map[string]*Field
-	if field_map_value, exist := d.bufferedFieldMaps.Load(intf_name); exist {
-		field_map = field_map_value.(map[string]*Field)
-	} else {
-		field_map = make(map[string]*Field)
-		fields, err := d.ReadStructFields(prototype)
-		if err != nil {
-			return err
-		}
-
-		for _, f := range fields {
-			field_map[f.Name] = f
-		}
-		d.bufferedFieldMaps.Store(intf_name, field_map)
-	}
-
 	// parse arguments
-	opt := mergeOptions(prototype)
-	offset := 0
-	limit := 0
-	cond_list := make([]string, 0, len(args))
-	order_list := make([]string, 0, len(args))
-
-	for _, arg := range args {
-		switch arg.(type) {
-		default:
-			t := reflect.TypeOf(arg)
-			return fmt.Errorf("unsupported type %v", t)
-		case *Options:
-			opt = mergeOptions(prototype, *(arg.(*Options)))
-		case Options:
-			opt = mergeOptions(prototype, arg.(Options))
-		case Limit:
-			limit = arg.(Limit).Limit
-		case *Limit:
-			limit = arg.(*Limit).Limit
-		case Offset:
-			offset = arg.(Offset).Offset
-		case *Offset:
-			offset = arg.(*Offset).Offset
-		case Cond:
-			cond := arg.(Cond)
-			c := packCond(&cond, field_map)
-			if "" != c {
-				cond_list = append(cond_list, c)
-			}
-		case *Cond:
-			cond := arg.(*Cond)
-			c := packCond(cond, field_map)
-			if "" != c {
-				cond_list = append(cond_list, c)
-			}
-		case Order:
-			order := arg.(Order)
-			o := packOrder(&order)
-			if "" != o {
-				order_list = append(order_list, o)
-			}
-		case *Order:
-			order := arg.(*Order)
-			o := packOrder(order)
-			if "" != o {
-				order_list = append(order_list, o)
-			}
-		}
-	}
-
-	// final arguments check
-	if "" == opt.TableName {
-		return fmt.Errorf("nil table name")
+	_, opt, offset, limit, cond_list, order_list, err := d.handleArgs(prototype, args)
+	if err != nil {
+		return err
 	}
 
 	// pack SELECT statements
@@ -512,6 +520,7 @@ func (d *DB) Update(prototype interface{}, fields map[string]interface{}, args .
 	kv := make([]string, 0, len(fields))
 	cond_list := make([]string, 0, len(args))
 	limit_str := ""
+	cond_str := ""
 
 	// handle fields
 	for k, v := range fields {
@@ -550,50 +559,22 @@ func (d *DB) Update(prototype interface{}, fields map[string]interface{}, args .
 		}
 	}
 
-	// TODO: handle arguments
-	for _, arg := range args {
-		switch arg.(type) {
-		default:
-			t := reflect.TypeOf(arg)
-			return nil, fmt.Errorf("unpupported type %v", t)
-		case *Options:
-			opt = mergeOptions(prototype, *(arg.(*Options)))
-		case Options:
-			opt = mergeOptions(prototype, arg.(Options))
-		case Limit:
-			l := arg.(Limit).Limit
-			if l > 0 {
-				limit_str = "LIMIT " + strconv.Itoa(l)
-			}
-		case *Limit:
-			l := arg.(Limit).Limit
-			if l > 0 {
-				limit_str = "LIMIT " + strconv.Itoa(l)
-			}
-		case Cond:
-			cond := arg.(Cond)
-			c := packCond(&cond, field_map)
-			if "" != c {
-				cond_list = append(cond_list, c)
-			}
-		case *Cond:
-			cond := arg.(*Cond)
-			c := packCond(cond, field_map)
-			if "" != c {
-				cond_list = append(cond_list, c)
-			}
-		}
-	}
-
-	if "" == opt.TableName {
-		return nil, fmt.Errorf("empty table name for type %v", reflect.TypeOf(prototype))
-	}
-
 	if 0 == len(kv) {
 		return nil, fmt.Errorf("no value specified")
 	}
 
-	cond_str := "WHERE " + strings.Join(cond_list, " AND ")
+	// TODO: handle arguments
+	_, opt, _, limit, cond_list, _, err := d.handleArgs(prototype, args)
+	if err != nil {
+		return nil, err
+	}
+	if limit > 0 {
+		limit_str = "LIMIT " + strconv.Itoa(limit)
+	}
+
+	if len(cond_list) > 0 {
+		cond_str = "WHERE " + strings.Join(cond_list, " AND ")
+	}
 	query := fmt.Sprintf("UPDATE `%s` SET %s %s %s", opt.TableName, strings.Join(kv, ", "), cond_str, limit_str)
 	// log.Println(query)
 
