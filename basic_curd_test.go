@@ -180,5 +180,24 @@ func TestQuery(t *testing.T) {
 		return
 	}
 	t.Logf("affected row(s): %d", affected)
+
+	// delete
+	res, err = db.Delete(
+		Disney{},
+		Cond{"first_name", "=", "Diane"},
+		Cond{"family_name", "=", "Miller"},
+		Cond{"die_time", "IS", nil},
+	)
+	if err != nil {
+		t.Errorf("Update failed: %v", err)
+		return
+	}
+
+	affected, err = res.RowsAffected()
+	if err != nil {
+		t.Errorf("read RowsAffected error: %v", err)
+		return
+	}
+	t.Logf("affected row(s): %d", affected)
 	return
 }

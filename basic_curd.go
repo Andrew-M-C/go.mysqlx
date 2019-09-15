@@ -563,7 +563,6 @@ func (d *DB) Update(prototype interface{}, fields map[string]interface{}, args .
 		return nil, fmt.Errorf("no value specified")
 	}
 
-	// TODO: handle arguments
 	_, opt, _, limit, cond_list, _, err := d.handleArgs(prototype, args)
 	if err != nil {
 		return nil, err
@@ -576,6 +575,56 @@ func (d *DB) Update(prototype interface{}, fields map[string]interface{}, args .
 		cond_str = "WHERE " + strings.Join(cond_list, " AND ")
 	}
 	query := fmt.Sprintf("UPDATE `%s` SET %s %s %s", opt.TableName, strings.Join(kv, ", "), cond_str, limit_str)
+	// log.Println(query)
+
+	return d.db.Exec(query)
+}
+
+// ========
+// DELETE
+func (d *DB) Delete(prototype interface{}, args ...interface{}) (sql.Result, error) {
+	if nil == d.db {
+		return nil, fmt.Errorf("mysqlx not initialized")
+	}
+
+	// Should be Xxx or *Xxx
+	ty := reflect.TypeOf(prototype)
+	va := reflect.ValueOf(prototype)
+	// log.Printf("%v - %v\n", ty, ty.Kind())
+	if reflect.Struct != ty.Kind() {
+		ty = ty.Elem()
+		prototype = va.Elem().Interface()
+		// log.Printf("%v - %v\n", ty, ty.Kind())
+	}
+
+	// Should be Xxx
+
+	// parse arguments
+	_, opt, _, limit, cond_list, order_list, err := d.handleArgs(prototype, args)
+	if err != nil {
+		return nil, err
+	}
+
+	// pack DELETE statements
+	var limit_str string
+	if limit > 0 {
+		limit_str = fmt.Sprintf("LIMIT %d", limit)
+	}
+
+	var order_str string
+	if len(order_list) > 0 {
+		order_str = "ORDER BY " + strings.Join(order_list, ", ")
+	}
+
+	var cond_str string
+	if len(cond_list) > 0 {
+		cond_str = "WHERE " + strings.Join(cond_list, " AND ")
+	}
+
+	query := fmt.Sprintf(
+		"DELETE FROM `%s` %s %s %s",
+		opt.TableName, cond_str, order_str, limit_str,
+	)
 	// log.Println(query)
 
 	return d.db.Exec(query)
