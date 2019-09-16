@@ -39,6 +39,7 @@ func New(db *sqlx.DB) (ret *DB, err error) {
 	}
 
 	ret = &DB{}
+	ret.db = db
 	ret.param.DBName = db_list[0].Name.String
 	return
 }

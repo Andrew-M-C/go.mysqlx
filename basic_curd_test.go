@@ -68,7 +68,7 @@ func TestQuery(t *testing.T) {
 		return
 	}
 
-	const SHOULD_BE = "`id`, `first_name`, `middle_name`, `family_name`, `full_name`, `gender`, `birth_date`, `nation`"
+	// const SHOULD_BE = "`id`, `first_name`, `middle_name`, `family_name`, `full_name`, `gender`, `birth_date`, `nation`"
 	select_fields, err := db.SelectFields(User{})
 	if err != nil {
 		return
