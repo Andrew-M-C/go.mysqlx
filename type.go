@@ -28,6 +28,7 @@ type DB struct {
 	bufferedFields       syncmap.Map // []*Field
 	bufferedFieldMaps    syncmap.Map // map[string]*Field
 	bufferedSelectFields syncmap.Map // []string
+	bufferedIncrField    syncmap.Map // *Field
 }
 
 type Index struct {

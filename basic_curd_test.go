@@ -53,6 +53,7 @@ func TestQuery(t *testing.T) {
 		DBName: "db_test",
 	})
 	if err != nil {
+		t.Errorf("open failed: %v", err)
 		return
 	}
 
@@ -89,7 +90,7 @@ func TestQuery(t *testing.T) {
 	new_disney.DieTime = mariadb.NullTime{Valid: true, Time: time.Date(1966, 12, 15, 14, 30, 0, 0, time.UTC)}
 	new_disney.IsBoss = true
 
-	keys, values, err := db.InsertFields(new_disney)
+	keys, values, err := db.InsertFields(new_disney, true)
 	if err != nil {
 		return
 	}
@@ -116,7 +117,7 @@ func TestQuery(t *testing.T) {
 		UpdateTimestamp: time.Now().Unix(),
 	}
 
-	keys, values, err = db.InsertFields(new_user)
+	keys, values, err = db.InsertFields(new_user, false)
 	if err != nil {
 		t.Errorf("Insert Diane Miller error: %v", err)
 		return
@@ -148,6 +149,7 @@ func TestQuery(t *testing.T) {
 		Cond{"die_time", "=", nil}, // for MySQL NULL, should be "IS" or "IS NOT", but here er make some compatibility
 		Cond{"birth_date", ">=", time.Date(1910, 1, 1, 0, 0, 0, 0, time.UTC)},
 		Offset{1}, Limit{2},
+		Order{"id", "DESC"},
 	)
 	if err != nil {
 		t.Errorf("select disney error: %v", err)
@@ -199,5 +201,72 @@ func TestQuery(t *testing.T) {
 		return
 	}
 	t.Logf("affected row(s): %d", affected)
+	return
+}
+
+func TestSelectOrInsertOne(t *testing.T) {
+	var err error
+
+	d, err := Open(Param{
+		User:   "travis",
+		DBName: "db_test",
+	})
+	if err != nil {
+		t.Errorf("open failed: %v", err)
+		return
+	}
+	d.MustCreateTable(User{})
+
+	abigai := User{
+		FirstName:  sql.NullString{Valid: true, String: "Abigail"},
+		MiddleName: sql.NullString{Valid: true, String: "E."},
+		FamilyName: sql.NullString{Valid: true, String: "Disney"},
+		FullName:   "Abigail Disney",
+		Gender:     "Female",
+		BirthDate:  time.Date(1960, 1, 24, 0, 0, 0, 0, time.UTC),
+	}
+	var all []User
+
+	// This should be first
+	err = d.SelectOrInsertOne(abigai, &all,
+		Cond{"first_name", "=", "Abigail"},
+		Cond{"family_name", "=", "Disney"},
+	)
+
+	if err != nil {
+		t.Errorf("SelectOrInsertOne failed: %v", err)
+		return
+	} else {
+		t.Logf("Got return: %+v", all)
+	}
+	if nil == all || 0 == len(all) {
+		t.Errorf("no data returned")
+		return
+	}
+
+	last_insert_id := all[0].ID
+
+	// second insert
+	err = d.SelectOrInsertOne(abigai, &all,
+		Cond{"first_name", "=", "Abigail"},
+		Cond{"family_name", "=", "Disney"},
+	)
+
+	if err != nil {
+		t.Errorf("SelectOrInsertOne failed: %v", err)
+		return
+	} else {
+		t.Logf("Got return: %+v", all)
+	}
+	if nil == all || 0 == len(all) {
+		t.Errorf("no data returned")
+		return
+	}
+
+	if all[0].ID != last_insert_id {
+		t.Errorf("duplicated insert detected: %d <> %d", last_insert_id, all[0].ID)
+		return
+	}
+
 	return
 }
