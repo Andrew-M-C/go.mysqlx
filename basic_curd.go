@@ -449,9 +449,9 @@ func (d *DB) InsertFields(s interface{}, backQuoted bool) (keys []string, values
 	return
 }
 
-func (d *DB) Insert(v interface{}, opts ...Options) (lastInsertId int64, err error) {
+func (d *DB) Insert(v interface{}, opts ...Options) (result sql.Result, err error) {
 	if nil == d.db {
-		return -1, fmt.Errorf("nil *sqlx.DB")
+		return nil, fmt.Errorf("nil *sqlx.DB")
 	}
 
 	// Should be *Xxx or Xxx
@@ -465,26 +465,22 @@ func (d *DB) Insert(v interface{}, opts ...Options) (lastInsertId int64, err err
 	}
 
 	if reflect.Struct != ty.Kind() {
-		return -1, fmt.Errorf("parameter type invalid (%v)", ty)
+		return nil, fmt.Errorf("parameter type invalid (%v)", ty)
 	}
 
 	keys, values, err := d.InsertFields(v, true)
 	if err != nil {
-		return -1, err
+		return nil, err
 	}
 
 	opt := mergeOptions(v, opts...)
 	if "" == opt.TableName {
-		return -1, fmt.Errorf("empty table name for type %v", reflect.TypeOf(v))
+		return nil, fmt.Errorf("empty table name for type %v", reflect.TypeOf(v))
 	}
 
 	query := fmt.Sprintf("INSERT INTO `%s` (%s) VALUES (%s)", opt.TableName, strings.Join(keys, ", "), strings.Join(values, ", "))
 	// // log.Println(query)
-	res, err := d.db.Exec(query)
-	if err != nil {
-		return -1, err
-	}
-	return res.LastInsertId()
+	return d.db.Exec(query)
 }
 
 func addQuoteToString(s, quote string) string {

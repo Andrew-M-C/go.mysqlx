@@ -97,13 +97,12 @@ func TestQuery(t *testing.T) {
 	t.Logf("Keys: %v", keys)
 	t.Logf("Vals: %v", values)
 
-	id, err := db.Insert(new_disney)
+	res, err := db.Insert(new_disney)
 	if err != nil {
 		t.Errorf("Insert Walter Disney error: %v", err)
 		return
 	}
-
-	t.Logf("inserted id: %d", id)
+	showResult(t, res)
 
 	// insert another one thrice
 	new_user := User{
@@ -127,19 +126,19 @@ func TestQuery(t *testing.T) {
 
 	// insert struct
 	for _ = range make([]int, 3) {
-		id, err = db.Insert(new_user)
+		res, err := db.Insert(new_user)
 		if err != nil {
 			return
 		}
-		t.Logf("inserted id: %d", id)
+		showResult(t, res)
 	}
 
 	// insert pointer
-	id, err = db.Insert(new_user)
+	res, err = db.Insert(new_user)
 	if err != nil {
 		return
 	}
-	t.Logf("inserted id: %d", id)
+	showResult(t, res)
 
 	// select
 	var result []Disney
@@ -162,7 +161,7 @@ func TestQuery(t *testing.T) {
 	}
 
 	// update
-	res, err := db.Update(
+	res, err = db.Update(
 		Disney{}, map[string]interface{}{
 			"die_time": time.Date(2013, 9, 19, 0, 0, 0, 0, time.UTC),
 			"is_boss":  true,
