@@ -350,81 +350,75 @@ func (d *DB) InsertFields(s interface{}, backQuoted bool) (keys []string, values
 			}
 		}
 
+		var v string
 		intf := vf.Interface()
+
 		switch intf.(type) {
 		case int, int8, int16, int32, int64:
 			f, _ := field_map[field_name]
-			if false == f.AutoIncrement {
-				keys = append(keys, field_name)
-				values = append(values, strconv.FormatInt(vf.Int(), 10))
+			if nil == f || f.AutoIncrement {
+				continue
+			} else {
+				v = strconv.FormatInt(vf.Int(), 10)
 			}
 		case uint, uint8, uint16, uint32, uint64:
 			f, _ := field_map[field_name]
-			if false == f.AutoIncrement {
-				keys = append(keys, field_name)
-				values = append(values, strconv.FormatUint(vf.Uint(), 10))
+			if nil == f || f.AutoIncrement {
+				continue
+			} else {
+				v = strconv.FormatUint(vf.Uint(), 10)
 			}
 		case string:
-			keys = append(keys, field_name)
-			values = append(values, addQuoteToString(vf.String(), "'"))
+			v = addQuoteToString(vf.String(), "'")
 		case bool:
-			keys = append(keys, field_name)
 			if vf.Bool() {
-				values = append(values, "TRUE")
+				v = "TRUE"
 			} else {
-				values = append(values, "FALSE")
+				v = "FALSE"
 			}
 		case float32, float64:
-			keys = append(keys, field_name)
-			values = append(values, fmt.Sprintf("%f", vf.Float()))
+			v = fmt.Sprintf("%f", vf.Float())
 		case sql.NullString:
 			ns := intf.(sql.NullString)
-			keys = append(keys, field_name)
 			if ns.Valid {
-				values = append(values, addQuoteToString(ns.String, "'"))
+				v = addQuoteToString(ns.String, "'")
 			} else {
-				values = append(values, "NULL")
+				v = "NULL"
 			}
 		case sql.NullInt64:
 			ni := intf.(sql.NullInt64)
-			keys = append(keys, field_name)
 			if ni.Valid {
-				values = append(values, strconv.FormatInt(ni.Int64, 10))
+				v = strconv.FormatInt(ni.Int64, 10)
 			} else {
-				values = append(values, "NULL")
+				v = "NULL"
 			}
 		case sql.NullBool:
 			nb := intf.(sql.NullBool)
-			keys = append(keys, field_name)
 			if nb.Valid {
 				if nb.Bool {
-					values = append(values, "TRUE")
+					v = "TRUE"
 				} else {
-					values = append(values, "FALSE")
+					v = "FALSE"
 				}
 			} else {
-				values = append(values, "NULL")
+				v = "NULL"
 			}
 		case sql.NullFloat64:
 			nf := intf.(sql.NullFloat64)
-			keys = append(keys, field_name)
 			if vf.Field(1).Bool() {
-				values = append(values, fmt.Sprintf("%f", nf.Float64))
+				v = fmt.Sprintf("%f", nf.Float64)
 			} else {
-				values = append(values, "NULL")
+				v = "NULL"
 			}
 		case mysql.NullTime:
 			nt := intf.(mysql.NullTime)
-			keys = append(keys, field_name)
 			if nt.Valid {
-				values = append(values, convTimeToString(nt.Time, field_map, field_name))
+				v = convTimeToString(nt.Time, field_map, field_name)
 			} else {
-				values = append(values, "NULL")
+				v = "NULL"
 			}
 		case time.Time:
-			t := intf.(time.Time)
-			keys = append(keys, field_name)
-			values = append(values, convTimeToString(t, field_map, field_name))
+			v = convTimeToString(intf.(time.Time), field_map, field_name)
 		default:
 			if reflect.Struct == tf.Type.Kind() {
 				// // log.Println("Embedded struct: ", tf.Type)
@@ -434,10 +428,16 @@ func (d *DB) InsertFields(s interface{}, backQuoted bool) (keys []string, values
 				}
 				keys = append(keys, embed_key...)
 				values = append(values, embed_value...)
+				continue
 			} else {
 				// ignore this field
+				continue
 			}
 		}
+
+		keys = append(keys, field_name)
+		values = append(values, v)
+		// continue
 	}
 
 	if backQuoted {
@@ -548,30 +548,44 @@ func (d *DB) Update(prototype interface{}, fields map[string]interface{}, args .
 		return nil, fmt.Errorf("parameter type invalid (%v)", ty)
 	}
 
-	intf_name := reflect.TypeOf(prototype)
-	var field_map map[string]*Field
-	if field_map_value, exist := d.bufferedFieldMaps.Load(intf_name); exist {
-		field_map = field_map_value.(map[string]*Field)
-	} else {
-		field_map = make(map[string]*Field)
-		fields, err := d.ReadStructFields(prototype)
-		if err != nil {
-			return nil, err
-		}
-
-		for _, f := range fields {
-			field_map[f.Name] = f
-		}
-		d.bufferedFieldMaps.Store(intf_name, field_map)
-	}
-
 	opt := mergeOptions(prototype)
-	kv := make([]string, 0, len(fields))
-	cond_list := make([]string, 0, len(args))
-	limit_str := ""
-	cond_str := ""
+	var cond_list []string
+	var limit_str string
+	var cond_str string
 
 	// handle fields
+	kv, err := d.genUpdateKVs(prototype, fields)
+	if err != nil {
+		return nil, err
+	}
+	if 0 == len(kv) {
+		return nil, fmt.Errorf("no value specified")
+	}
+
+	_, opt, _, limit, cond_list, _, err := d.handleArgs(prototype, args)
+	if err != nil {
+		return nil, err
+	}
+	if limit > 0 {
+		limit_str = "LIMIT " + strconv.Itoa(limit)
+	}
+
+	if len(cond_list) > 0 {
+		cond_str = "WHERE " + strings.Join(cond_list, " AND ")
+	}
+	query := fmt.Sprintf("UPDATE `%s` SET %s %s %s", opt.TableName, strings.Join(kv, ", "), cond_str, limit_str)
+	// log.Println(query)
+
+	return d.db.Exec(query)
+}
+
+func (d *DB) genUpdateKVs(prototype interface{}, fields map[string]interface{}) ([]string, error) {
+	field_map, err := d.getFieldMap(prototype)
+	if err != nil {
+		return nil, err
+	}
+
+	kv := make([]string, 0, len(fields))
 	for k, v := range fields {
 		if "" == k {
 			continue
@@ -607,26 +621,7 @@ func (d *DB) Update(prototype interface{}, fields map[string]interface{}, args .
 			kv = append(kv, "`"+k+"`"+" = NULL")
 		}
 	}
-
-	if 0 == len(kv) {
-		return nil, fmt.Errorf("no value specified")
-	}
-
-	_, opt, _, limit, cond_list, _, err := d.handleArgs(prototype, args)
-	if err != nil {
-		return nil, err
-	}
-	if limit > 0 {
-		limit_str = "LIMIT " + strconv.Itoa(limit)
-	}
-
-	if len(cond_list) > 0 {
-		cond_str = "WHERE " + strings.Join(cond_list, " AND ")
-	}
-	query := fmt.Sprintf("UPDATE `%s` SET %s %s %s", opt.TableName, strings.Join(kv, ", "), cond_str, limit_str)
-	// log.Println(query)
-
-	return d.db.Exec(query)
+	return kv, nil
 }
 
 // ========

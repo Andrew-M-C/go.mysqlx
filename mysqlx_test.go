@@ -48,13 +48,27 @@ func TestNew(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
+	if nil == sqlx_db {
+		t.Errorf("no sqlx object returned")
+		return
+	}
 
 	db, err := New(sqlx_db)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
+		return
 	} else {
 		t.Logf("database: %s", db.Database())
 	}
+
+	db, err = New(nil)
+	if err != nil {
+		t.Logf("expeted err message: %v", err)
+	} else {
+		t.Errorf("error expected but not returned")
+		return
+	}
+
 }
 
 func TestMiscError(t *testing.T) {

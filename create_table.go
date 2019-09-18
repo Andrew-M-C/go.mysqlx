@@ -154,7 +154,7 @@ func (d *DB) mysqlCreateTable(fields []*Field, opt *Options) error {
 	}
 }
 
-func (d *DB) mysqlAlterTable(fields []*Field, fieldsInDB []*Field, opt *Options) error {
+func (d *DB) mysqlAlterTableFields(fields []*Field, fieldsInDB []*Field, opt *Options) error {
 	prev_field_map := make(map[string]*Field) // used for AFTER section in ALTER statements
 	var prev_field *Field
 	for _, f := range fields {
@@ -169,7 +169,6 @@ func (d *DB) mysqlAlterTable(fields []*Field, fieldsInDB []*Field, opt *Options)
 		if exist {
 			continue
 		}
-
 		// new primary key is not allowed
 		if f.AutoIncrement {
 			return fmt.Errorf("new promary key `%s` (auto increment) is not allowed", f.Name)
@@ -178,6 +177,7 @@ func (d *DB) mysqlAlterTable(fields []*Field, fieldsInDB []*Field, opt *Options)
 		// not exist? should ALTER
 		var func_insert_field func(*Field) error
 		func_insert_field = func(f *Field) error {
+			var statement string
 			comment := strings.Replace(f.Comment, "'", "\\'", -1)
 			null := ""
 			if false == f.Nullable {
@@ -187,15 +187,8 @@ func (d *DB) mysqlAlterTable(fields []*Field, fieldsInDB []*Field, opt *Options)
 			prev_field, _ := prev_field_map[f.Name]
 			if prev_field == nil {
 				// this is first column
-				statement := fmt.Sprintf("ALTER TABLE `%s` ADD COLUMN `%s` %s %s DEFAULT %s COMMENT '%s' FIRST", opt.TableName, f.Name, f.Type, null, f.Default, comment)
-				// log.Println(statement)
-				_, err := d.db.Exec(statement)
-				if err != nil {
-					return err
-				} else {
-					fields_in_db_map[f.Name] = f
-					return nil
-				}
+				statement = fmt.Sprintf("ALTER TABLE `%s` ADD COLUMN `%s` %s %s DEFAULT %s COMMENT '%s' FIRST", opt.TableName, f.Name, f.Type, null, f.Default, comment)
+
 			} else {
 				_, prev_exist_in_db := fields_in_db_map[prev_field.Name]
 				if false == prev_exist_in_db {
@@ -204,26 +197,31 @@ func (d *DB) mysqlAlterTable(fields []*Field, fieldsInDB []*Field, opt *Options)
 					if err != nil {
 						return err
 					}
-				} else {
-					statement := fmt.Sprintf("ALTER TABLE `%s` ADD COLUMN `%s` %s %s DEFAULT %s COMMENT '%s' AFTER `%s`", opt.TableName, f.Name, f.Type, null, f.Default, comment, prev_field.Name)
-					// log.Println(statement)
-					_, err := d.db.Exec(statement)
-					if err != nil {
-						return err
-					} else {
-						fields_in_db_map[f.Name] = f
-						return nil
-					}
 				}
+
+				statement = fmt.Sprintf("ALTER TABLE `%s` ADD COLUMN `%s` %s %s DEFAULT %s COMMENT '%s' AFTER `%s`", opt.TableName, f.Name, f.Type, null, f.Default, comment, prev_field.Name)
 			}
-			return nil
+
+			// log.Println(statement)
+			_, err := d.db.Exec(statement)
+			if err != nil {
+				return err
+			} else {
+				fields_in_db_map[f.Name] = f
+				return nil
+			}
 		}
+
 		err := func_insert_field(f)
 		if err != nil {
 			return err
 		}
 	}
 
+	return nil
+}
+
+func (d *DB) mysqlAlterTableIndexUniques(opt *Options) error {
 	// read index and uniques
 	index_in_db, uniq_in_db, err := d.ReadTableIndexes(opt.TableName)
 	if err != nil {
@@ -314,7 +312,13 @@ func (d *DB) CreateTable(v interface{}, opts ...Options) error {
 		return d.mysqlCreateTable(fields, &opt)
 	} else {
 		// check and alter fields
-		return d.mysqlAlterTable(fields, fields_in_db, &opt)
+		err = d.mysqlAlterTableFields(fields, fields_in_db, &opt)
+		if err != nil {
+			return err
+		}
+		// check and alter indexes and uniques
+		err = d.mysqlAlterTableIndexUniques(&opt)
+		return err
 	}
 }
 
