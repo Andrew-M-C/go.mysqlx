@@ -228,7 +228,7 @@ func TestSelectOrInsertOne(t *testing.T) {
 	var all []User
 
 	// This should be first
-	err = d.SelectOrInsertOne(abigai, &all,
+	res, err := d.SelectOrInsertOne(abigai, &all,
 		Cond{"first_name", "=", "Abigail"},
 		Cond{"family_name", "=", "Disney"},
 	)
@@ -237,6 +237,7 @@ func TestSelectOrInsertOne(t *testing.T) {
 		t.Errorf("SelectOrInsertOne failed: %v", err)
 		return
 	} else {
+		showResult(t, res)
 		t.Logf("Got return: %+v", all)
 	}
 	if nil == all || 0 == len(all) {
@@ -247,7 +248,7 @@ func TestSelectOrInsertOne(t *testing.T) {
 	last_insert_id := all[0].ID
 
 	// second insert
-	err = d.SelectOrInsertOne(abigai, &all,
+	res, err = d.SelectOrInsertOne(abigai, &all,
 		Cond{"first_name", "=", "Abigail"},
 		Cond{"family_name", "=", "Disney"},
 	)
@@ -256,6 +257,7 @@ func TestSelectOrInsertOne(t *testing.T) {
 		t.Errorf("SelectOrInsertOne failed: %v", err)
 		return
 	} else {
+		showResult(t, res)
 		t.Logf("Got return: %+v", all)
 	}
 	if nil == all || 0 == len(all) {
@@ -266,6 +268,20 @@ func TestSelectOrInsertOne(t *testing.T) {
 	if all[0].ID != last_insert_id {
 		t.Errorf("duplicated insert detected: %d <> %d", last_insert_id, all[0].ID)
 		return
+	}
+
+	return
+}
+
+func showResult(t *testing.T, res sql.Result) {
+	last_insert_id, err := res.LastInsertId()
+	if err == nil {
+		t.Logf("LastInsertId = %d", last_insert_id)
+	}
+
+	affected, err := res.RowsAffected()
+	if err == nil {
+		t.Logf("RowsAffected = %d", affected)
 	}
 
 	return

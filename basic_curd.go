@@ -684,9 +684,9 @@ func (d *DB) Delete(prototype interface{}, args ...interface{}) (sql.Result, err
 }
 
 // ========
-func (d *DB) SelectOrInsertOne(insert interface{}, result interface{}, conds ...interface{}) (err error) {
+func (d *DB) SelectOrInsertOne(insert interface{}, selectResult interface{}, conds ...interface{}) (res sql.Result, err error) {
 	if nil == d.db {
-		return fmt.Errorf("mysqlx not initialized")
+		return nil, fmt.Errorf("mysqlx not initialized")
 	}
 
 	// Should be Xxx or *Xxx
@@ -705,13 +705,13 @@ func (d *DB) SelectOrInsertOne(insert interface{}, result interface{}, conds ...
 	field_map, opt, _, _, cond_list, _, err := d.handleArgs(insert, conds)
 	if err != nil {
 		// log.Printf("handleArgs() failed: %v", err)
-		return err
+		return nil, err
 	}
 	if 0 == len(cond_list) {
-		return fmt.Errorf("select conditions not given")
+		return nil, fmt.Errorf("select conditions not given")
 	}
 	if "" == opt.TableName {
-		return fmt.Errorf("nil table name")
+		return nil, fmt.Errorf("nil table name")
 	}
 
 	// should have increment field
@@ -723,10 +723,10 @@ func (d *DB) SelectOrInsertOne(insert interface{}, result interface{}, conds ...
 	// handle insert fields and values
 	keys, values, err := d.InsertFields(insert, false)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if 0 == len(keys) {
-		return fmt.Errorf("no valid values given")
+		return nil, fmt.Errorf("no valid values given")
 	}
 
 	// log.Printf("keys: %v", keys)
@@ -735,12 +735,13 @@ func (d *DB) SelectOrInsertOne(insert interface{}, result interface{}, conds ...
 	var second_list []string
 	var third_list []string
 
-	first_list = keys
+	first_list = make([]string, len(keys))
 	second_list = make([]string, len(keys))
 	third_list = cond_list
 
 	for i, k := range keys {
 		v := values[i]
+		first_list[i] = "`" + k + "`"
 		second_list[i] = fmt.Sprintf("%s AS %s", v, addQuoteToString(k, "'"))
 	}
 
@@ -756,20 +757,20 @@ func (d *DB) SelectOrInsertOne(insert interface{}, result interface{}, conds ...
 	// log.Println(query)
 
 	// exec first
-	res, err := d.db.Exec(query)
+	res, err = d.db.Exec(query)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if nil == result {
+	if nil == selectResult {
 		// simply return
-		return
+		return res, nil
 	}
 
 	// determine insert status
 	select_fields, err := d.SelectFields(insert)
 	if err != nil {
-		return err
+		return res, err
 	}
 	insert_id, err := res.LastInsertId()
 	if err != nil {
@@ -782,5 +783,5 @@ func (d *DB) SelectOrInsertOne(insert interface{}, result interface{}, conds ...
 	}
 
 	// log.Println(query)
-	return d.db.Select(result, query)
+	return res, d.db.Select(selectResult, query)
 }
