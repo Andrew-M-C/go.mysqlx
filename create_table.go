@@ -12,18 +12,18 @@ import (
 	"github.com/go-sql-driver/mysql"
 )
 
-type OptionInterface interface {
+type optionInterface interface {
 	Options() Options
 }
 
 type category int
 
 const (
-	Integer category = iota
-	Float
-	String
-	DateTime
-	Bool
+	_Integer category = iota
+	_Float
+	_String
+	_DateTime
+	_Bool
 )
 
 func convFieldListToMap(list []*Field) map[string]*Field {
@@ -34,6 +34,7 @@ func convFieldListToMap(list []*Field) map[string]*Field {
 	return ret
 }
 
+// MustCreateTable is same as CreateTable. But is panics if error.
 func (d *DB) MustCreateTable(v interface{}, opts ...Options) {
 	err := d.CreateTable(v, opts...)
 	if err != nil {
@@ -44,7 +45,7 @@ func (d *DB) MustCreateTable(v interface{}, opts ...Options) {
 
 func mergeOptions(v interface{}, opts ...Options) Options {
 	opt := Options{}
-	if intf, ok := v.(OptionInterface); ok {
+	if intf, ok := v.(optionInterface); ok {
 		opt = intf.Options()
 	}
 	if len(opts) > 0 {
@@ -73,7 +74,7 @@ func mergeOptions(v interface{}, opts ...Options) Options {
 
 func (d *DB) mysqlCreateTable(fields []*Field, opt *Options) error {
 	// create table
-	var auto_inc_field *Field
+	var autoIncField *Field
 	statements := make([]string, 0, len(fields)+len(opt.Indexes)+len(opt.Uniques)+1)
 
 	// make fields statements
@@ -84,7 +85,7 @@ func (d *DB) mysqlCreateTable(fields []*Field, opt *Options) error {
 			null = "NOT NULL"
 		}
 		if f.AutoIncrement {
-			auto_inc_field = f
+			autoIncField = f
 			f.statement = fmt.Sprintf("`%s` %s %s AUTO_INCREMENT COMMENT '%s'", f.Name, f.Type, null, comment)
 		} else {
 			f.statement = fmt.Sprintf("`%s` %s %s DEFAULT %s COMMENT '%s'", f.Name, f.Type, null, f.Default, comment)
@@ -95,8 +96,8 @@ func (d *DB) mysqlCreateTable(fields []*Field, opt *Options) error {
 	}
 
 	// make index statements
-	if auto_inc_field != nil {
-		s := fmt.Sprintf("PRIMARY KEY (`%s`)", auto_inc_field.Name)
+	if autoIncField != nil {
+		s := fmt.Sprintf("PRIMARY KEY (`%s`)", autoIncField.Name)
 		statements = append(statements, s)
 		// log.Printf("statement: %s\n", s)
 	}
@@ -105,11 +106,11 @@ func (d *DB) mysqlCreateTable(fields []*Field, opt *Options) error {
 			return err
 		}
 
-		idx_field_list := make([]string, 0, len(idx.Fields))
+		idxFieldList := make([]string, 0, len(idx.Fields))
 		for _, f := range idx.Fields {
-			idx_field_list = append(idx_field_list, "`"+f+"`")
+			idxFieldList = append(idxFieldList, "`"+f+"`")
 		}
-		s := fmt.Sprintf("KEY `%s` (%s)", idx.Name, strings.Join(idx_field_list, ", "))
+		s := fmt.Sprintf("KEY `%s` (%s)", idx.Name, strings.Join(idxFieldList, ", "))
 		statements = append(statements, s)
 		// log.Printf("statememt: %s\n", s)
 	}
@@ -120,12 +121,12 @@ func (d *DB) mysqlCreateTable(fields []*Field, opt *Options) error {
 			return err
 		}
 
-		uniq_field_list := make([]string, 0, len(uniq.Fields))
+		uniqFieldList := make([]string, 0, len(uniq.Fields))
 		for _, f := range uniq.Fields {
-			uniq_field_list = append(uniq_field_list, "`"+f+"`")
+			uniqFieldList = append(uniqFieldList, "`"+f+"`")
 		}
 
-		s := fmt.Sprintf("UNIQUE KEY `%s` (%s)", uniq.Name, strings.Join(uniq_field_list, ", "))
+		s := fmt.Sprintf("UNIQUE KEY `%s` (%s)", uniq.Name, strings.Join(uniqFieldList, ", "))
 
 		statements = append(statements, s)
 		// log.Printf("statememt: %s\n", s)
@@ -133,15 +134,15 @@ func (d *DB) mysqlCreateTable(fields []*Field, opt *Options) error {
 
 	// package final create statements
 	desc := strings.Replace(opt.TableDescption, "'", "\\'", -1)
-	auto_inc_1 := "AUTO_INCREMENT=1"
-	if nil == auto_inc_field {
-		auto_inc_1 = ""
+	autoIncOne := "AUTO_INCREMENT=1"
+	if nil == autoIncField {
+		autoIncOne = ""
 	}
 	final := fmt.Sprintf(
 		"CREATE TABLE IF NOT EXISTS `%s` (\n%s\n) ENGINE=InnoDB %s DEFAULT CHARSET=utf8 COMMENT '%s'",
 		opt.TableName,
 		strings.Join(statements, ",\n"),
-		auto_inc_1, desc,
+		autoIncOne, desc,
 	)
 
 	// exec
@@ -149,23 +150,23 @@ func (d *DB) mysqlCreateTable(fields []*Field, opt *Options) error {
 	_, err := d.db.Exec(final)
 	if err != nil {
 		return err
-	} else {
-		return nil
 	}
+
+	return nil
 }
 
 func (d *DB) mysqlAlterTableFields(fields []*Field, fieldsInDB []*Field, opt *Options) error {
-	prev_field_map := make(map[string]*Field) // used for AFTER section in ALTER statements
-	var prev_field *Field
+	prevFieldMap := make(map[string]*Field) // used for AFTER section in ALTER statements
+	var prevField *Field
 	for _, f := range fields {
-		prev_field_map[f.Name] = prev_field
-		prev_field = f
+		prevFieldMap[f.Name] = prevField
+		prevField = f
 	}
 
 	// find missing columns and then alter them
-	fields_in_db_map := convFieldListToMap(fieldsInDB)
+	fieldsInDBMap := convFieldListToMap(fieldsInDB)
 	for _, f := range fields {
-		_, exist := fields_in_db_map[f.Name]
+		_, exist := fieldsInDBMap[f.Name]
 		if exist {
 			continue
 		}
@@ -175,8 +176,8 @@ func (d *DB) mysqlAlterTableFields(fields []*Field, fieldsInDB []*Field, opt *Op
 		}
 
 		// not exist? should ALTER
-		var func_insert_field func(*Field) error
-		func_insert_field = func(f *Field) error {
+		var funcInsertField func(*Field) error
+		funcInsertField = func(f *Field) error {
 			var statement string
 			comment := strings.Replace(f.Comment, "'", "\\'", -1)
 			null := ""
@@ -184,35 +185,35 @@ func (d *DB) mysqlAlterTableFields(fields []*Field, fieldsInDB []*Field, opt *Op
 				null = "NOT NULL"
 			}
 
-			prev_field, _ := prev_field_map[f.Name]
-			if prev_field == nil {
+			prevField, _ := prevFieldMap[f.Name]
+			if prevField == nil {
 				// this is first column
 				statement = fmt.Sprintf("ALTER TABLE `%s` ADD COLUMN `%s` %s %s DEFAULT %s COMMENT '%s' FIRST", opt.TableName, f.Name, f.Type, null, f.Default, comment)
 
 			} else {
-				_, prev_exist_in_db := fields_in_db_map[prev_field.Name]
-				if false == prev_exist_in_db {
+				_, prevExistsInDB := fieldsInDBMap[prevField.Name]
+				if false == prevExistsInDB {
 					// previous map has not been inserted
-					err := func_insert_field(prev_field)
+					err := funcInsertField(prevField)
 					if err != nil {
 						return err
 					}
 				}
 
-				statement = fmt.Sprintf("ALTER TABLE `%s` ADD COLUMN `%s` %s %s DEFAULT %s COMMENT '%s' AFTER `%s`", opt.TableName, f.Name, f.Type, null, f.Default, comment, prev_field.Name)
+				statement = fmt.Sprintf("ALTER TABLE `%s` ADD COLUMN `%s` %s %s DEFAULT %s COMMENT '%s' AFTER `%s`", opt.TableName, f.Name, f.Type, null, f.Default, comment, prevField.Name)
 			}
 
 			// log.Println(statement)
 			_, err := d.db.Exec(statement)
 			if err != nil {
 				return err
-			} else {
-				fields_in_db_map[f.Name] = f
-				return nil
 			}
+
+			fieldsInDBMap[f.Name] = f
+			return nil
 		}
 
-		err := func_insert_field(f)
+		err := funcInsertField(f)
 		if err != nil {
 			return err
 		}
@@ -223,7 +224,7 @@ func (d *DB) mysqlAlterTableFields(fields []*Field, fieldsInDB []*Field, opt *Op
 
 func (d *DB) mysqlAlterTableIndexUniques(opt *Options) error {
 	// read index and uniques
-	index_in_db, uniq_in_db, err := d.ReadTableIndexes(opt.TableName)
+	indexInDB, uniqInDB, err := d.ReadTableIndexes(opt.TableName)
 	if err != nil {
 		return err
 	}
@@ -234,15 +235,15 @@ func (d *DB) mysqlAlterTableIndexUniques(opt *Options) error {
 			return err
 		}
 
-		if _, exist := index_in_db[idx.Name]; exist {
+		if _, exist := indexInDB[idx.Name]; exist {
 			continue
 		}
 
-		idx_field_list := make([]string, 0, len(idx.Fields))
+		idxFieldList := make([]string, 0, len(idx.Fields))
 		for _, f := range idx.Fields {
-			idx_field_list = append(idx_field_list, "`"+f+"`")
+			idxFieldList = append(idxFieldList, "`"+f+"`")
 		}
-		s := fmt.Sprintf("ALTER TABLE `%s` ADD INDEX `%s` (%s)", opt.TableName, idx.Name, strings.Join(idx_field_list, ", "))
+		s := fmt.Sprintf("ALTER TABLE `%s` ADD INDEX `%s` (%s)", opt.TableName, idx.Name, strings.Join(idxFieldList, ", "))
 
 		_, err := d.db.Exec(s)
 		if err != nil {
@@ -256,15 +257,15 @@ func (d *DB) mysqlAlterTableIndexUniques(opt *Options) error {
 			return err
 		}
 
-		if _, exist := uniq_in_db[uniq.Name]; exist {
+		if _, exist := uniqInDB[uniq.Name]; exist {
 			continue
 		}
 
-		uniq_field_list := make([]string, 0, len(uniq.Fields))
+		uniqFieldList := make([]string, 0, len(uniq.Fields))
 		for _, f := range uniq.Fields {
-			uniq_field_list = append(uniq_field_list, "`"+f+"`")
+			uniqFieldList = append(uniqFieldList, "`"+f+"`")
 		}
-		s := fmt.Sprintf("ALTER TABLE `%s` ADD UNIQUE `%s` (%s)", opt.TableName, uniq.Name, strings.Join(uniq_field_list, ", "))
+		s := fmt.Sprintf("ALTER TABLE `%s` ADD UNIQUE `%s` (%s)", opt.TableName, uniq.Name, strings.Join(uniqFieldList, ", "))
 
 		_, err := d.db.Exec(s)
 		if err != nil {
@@ -275,6 +276,7 @@ func (d *DB) mysqlAlterTableIndexUniques(opt *Options) error {
 	return nil
 }
 
+// CreateTable creates a table if not exist. If the table exists, it will alter it if necessary
 func (d *DB) CreateTable(v interface{}, opts ...Options) error {
 	if nil == d.db {
 		return fmt.Errorf("mysqlx not initialized")
@@ -296,30 +298,30 @@ func (d *DB) CreateTable(v interface{}, opts ...Options) error {
 	}
 
 	// read fields and check if table exists
-	should_create := false
-	fields_in_db, err := d.ReadTableFields(opt.TableName)
+	shouldCreate := false
+	fieldsInDB, err := d.ReadTableFields(opt.TableName)
 	if err != nil {
 		if false == strings.Contains(err.Error(), "doesn't exist") {
 			return err
-		} else {
-			should_create = true
-			// and then continue
 		}
+
+		shouldCreate = true
+		// and then continue
 	}
 
 	// create or alter fields
-	if should_create || nil == fields_in_db {
+	if shouldCreate || nil == fieldsInDB {
 		return d.mysqlCreateTable(fields, &opt)
-	} else {
-		// check and alter fields
-		err = d.mysqlAlterTableFields(fields, fields_in_db, &opt)
-		if err != nil {
-			return err
-		}
-		// check and alter indexes and uniques
-		err = d.mysqlAlterTableIndexUniques(&opt)
+	}
+
+	// check and alter fields
+	err = d.mysqlAlterTableFields(fields, fieldsInDB, &opt)
+	if err != nil {
 		return err
 	}
+	// check and alter indexes and uniques
+	err = d.mysqlAlterTableIndexUniques(&opt)
+	return err
 }
 
 var _defaultIntegerTypes = map[string]string{
@@ -336,10 +338,10 @@ var _defaultIntegerTypes = map[string]string{
 }
 
 func readStructFields(t reflect.Type, v reflect.Value) (ret []*Field, err error) {
-	num_field := t.NumField()
-	ret = make([]*Field, 0, num_field)
+	numField := t.NumField()
+	ret = make([]*Field, 0, numField)
 
-	for i := 0; i < num_field; i++ {
+	for i := 0; i < numField; i++ {
 		tf := t.Field(i) // *StructField
 		vf := v.Field(i) // *Value
 		if false == vf.CanInterface() {
@@ -347,14 +349,14 @@ func readStructFields(t reflect.Type, v reflect.Value) (ret []*Field, err error)
 			continue
 		}
 
-		field_name := getFieldName(&tf)
-		field_type := ""
-		field_null := false
-		field_dflt := ""
-		field_incr := false
-		field_comt := ""
+		fieldName := getFieldName(&tf)
+		fieldType := ""
+		fieldNull := false
+		fieldDflt := ""
+		fieldIncr := false
+		fieldComt := ""
 
-		if field_name == "" || field_name == "-" {
+		if fieldName == "" || fieldName == "-" {
 			if tf.Type.Kind() != reflect.Struct {
 				continue // skip this
 			}
@@ -362,125 +364,123 @@ func readStructFields(t reflect.Type, v reflect.Value) (ret []*Field, err error)
 
 		switch vf.Interface().(type) {
 		case int, uint, int64, uint64, int32, uint32, int16, uint16, int8, uint8:
-			field_type_name := reflect.TypeOf(vf.Interface()).String()
-			field_type = getFieldType(&tf, _defaultIntegerTypes[field_type_name])
-			field_null = getFieldNullable(&tf, false)
-			field_dflt = getFieldDefault(&tf, Integer, field_null)
-			field_incr = getFieldAutoIncrement(&tf, false)
-			field_comt = getFieldComment(&tf)
+			fieldTypeName := reflect.TypeOf(vf.Interface()).String()
+			fieldType = getFieldType(&tf, _defaultIntegerTypes[fieldTypeName])
+			fieldNull = getFieldNullable(&tf, false)
+			fieldDflt = getFieldDefault(&tf, _Integer, fieldNull)
+			fieldIncr = getFieldAutoIncrement(&tf, false)
+			fieldComt = getFieldComment(&tf)
 		case bool:
-			field_type = getFieldType(&tf, "boolean")
-			field_null = getFieldNullable(&tf, false)
-			field_dflt = getFieldDefault(&tf, Bool, field_null)
-			field_incr = getFieldAutoIncrement(&tf, false)
-			field_comt = getFieldComment(&tf)
+			fieldType = getFieldType(&tf, "boolean")
+			fieldNull = getFieldNullable(&tf, false)
+			fieldDflt = getFieldDefault(&tf, _Bool, fieldNull)
+			fieldIncr = getFieldAutoIncrement(&tf, false)
+			fieldComt = getFieldComment(&tf)
 		case string:
-			field_type = getFieldType(&tf, "")
-			field_null = getFieldNullable(&tf, false)
-			field_dflt = getFieldDefault(&tf, String, field_null)
-			field_incr = false
-			field_comt = getFieldComment(&tf)
-			if "" == field_type {
-				return nil, fmt.Errorf("missing type tag for string field '%s'", field_name)
+			fieldType = getFieldType(&tf, "")
+			fieldNull = getFieldNullable(&tf, false)
+			fieldDflt = getFieldDefault(&tf, _String, fieldNull)
+			fieldIncr = false
+			fieldComt = getFieldComment(&tf)
+			if "" == fieldType {
+				return nil, fmt.Errorf("missing type tag for string field '%s'", fieldName)
 			}
 		case float32, float64:
-			field_type = getFieldType(&tf, "")
-			field_null = getFieldNullable(&tf, false)
-			field_dflt = getFieldDefault(&tf, Float, field_null)
-			field_incr = false
-			field_comt = getFieldComment(&tf)
-			if "" == field_type {
-				return nil, fmt.Errorf("missing type tag for float field '%s'", field_name)
+			fieldType = getFieldType(&tf, "")
+			fieldNull = getFieldNullable(&tf, false)
+			fieldDflt = getFieldDefault(&tf, _Float, fieldNull)
+			fieldIncr = false
+			fieldComt = getFieldComment(&tf)
+			if "" == fieldType {
+				return nil, fmt.Errorf("missing type tag for float field '%s'", fieldName)
 			}
 		case sql.NullString:
-			field_type = getFieldType(&tf, "")
-			field_null = getFieldNullable(&tf, true)
-			field_dflt = getFieldDefault(&tf, String, field_null)
-			field_incr = false
-			field_comt = getFieldComment(&tf)
-			if "" == field_type {
-				return nil, fmt.Errorf("missing type tag for sql.NullString field '%s'", field_name)
+			fieldType = getFieldType(&tf, "")
+			fieldNull = getFieldNullable(&tf, true)
+			fieldDflt = getFieldDefault(&tf, _String, fieldNull)
+			fieldIncr = false
+			fieldComt = getFieldComment(&tf)
+			if "" == fieldType {
+				return nil, fmt.Errorf("missing type tag for sql.NullString field '%s'", fieldName)
 			}
 		case sql.NullInt64:
-			field_type = getFieldType(&tf, "bigint")
-			field_null = getFieldNullable(&tf, true)
-			field_dflt = getFieldDefault(&tf, Integer, field_null)
-			field_incr = getFieldAutoIncrement(&tf, false)
-			field_comt = getFieldComment(&tf)
+			fieldType = getFieldType(&tf, "bigint")
+			fieldNull = getFieldNullable(&tf, true)
+			fieldDflt = getFieldDefault(&tf, _Integer, fieldNull)
+			fieldIncr = getFieldAutoIncrement(&tf, false)
+			fieldComt = getFieldComment(&tf)
 		case sql.NullBool:
-			field_type = getFieldType(&tf, "boolean")
-			field_null = getFieldNullable(&tf, true)
-			field_dflt = getFieldDefault(&tf, Bool, field_null)
-			field_incr = getFieldAutoIncrement(&tf, false)
-			field_comt = getFieldComment(&tf)
+			fieldType = getFieldType(&tf, "boolean")
+			fieldNull = getFieldNullable(&tf, true)
+			fieldDflt = getFieldDefault(&tf, _Bool, fieldNull)
+			fieldIncr = getFieldAutoIncrement(&tf, false)
+			fieldComt = getFieldComment(&tf)
 		case sql.NullFloat64:
-			field_type = getFieldType(&tf, "")
-			field_null = getFieldNullable(&tf, true)
-			field_dflt = getFieldDefault(&tf, Float, field_null)
-			field_incr = getFieldAutoIncrement(&tf, false)
-			field_comt = getFieldComment(&tf)
-			if "" == field_type {
-				return nil, fmt.Errorf("missing type tag for sql.NullFloat64 field '%s'", field_name)
+			fieldType = getFieldType(&tf, "")
+			fieldNull = getFieldNullable(&tf, true)
+			fieldDflt = getFieldDefault(&tf, _Float, fieldNull)
+			fieldIncr = getFieldAutoIncrement(&tf, false)
+			fieldComt = getFieldComment(&tf)
+			if "" == fieldType {
+				return nil, fmt.Errorf("missing type tag for sql.NullFloat64 field '%s'", fieldName)
 			}
 		case mysql.NullTime:
-			field_type = getFieldType(&tf, "datetime")
-			field_null = getFieldNullable(&tf, true)
-			field_dflt = getFieldDefault(&tf, DateTime, field_null, field_type)
-			field_incr = getFieldAutoIncrement(&tf, false)
-			field_comt = getFieldComment(&tf)
+			fieldType = getFieldType(&tf, "datetime")
+			fieldNull = getFieldNullable(&tf, true)
+			fieldDflt = getFieldDefault(&tf, _DateTime, fieldNull, fieldType)
+			fieldIncr = getFieldAutoIncrement(&tf, false)
+			fieldComt = getFieldComment(&tf)
 		case time.Time:
-			field_type = getFieldType(&tf, "datetime")
-			field_null = getFieldNullable(&tf, false)
-			field_dflt = getFieldDefault(&tf, DateTime, field_null, field_type)
-			field_incr = getFieldAutoIncrement(&tf, false)
-			field_comt = getFieldComment(&tf)
+			fieldType = getFieldType(&tf, "datetime")
+			fieldNull = getFieldNullable(&tf, false)
+			fieldDflt = getFieldDefault(&tf, _DateTime, fieldNull, fieldType)
+			fieldIncr = getFieldAutoIncrement(&tf, false)
+			fieldComt = getFieldComment(&tf)
 		default:
 			if tf.Type.Kind() == reflect.Struct {
 				// log.Println("Embedded struct: ", tf.Type)
-				sub_fields, err := readStructFields(tf.Type, vf)
+				subFields, err := readStructFields(tf.Type, vf)
 				if err != nil {
 					return nil, err
 				}
-				ret = append(ret, sub_fields...)
+				ret = append(ret, subFields...)
 			}
 			continue
 		}
 
 		// done
 		ret = append(ret, &Field{
-			Name:          field_name,
-			Type:          field_type,
-			Nullable:      field_null,
-			Default:       field_dflt,
-			AutoIncrement: field_incr,
-			Comment:       field_comt,
+			Name:          fieldName,
+			Type:          fieldType,
+			Nullable:      fieldNull,
+			Default:       fieldDflt,
+			AutoIncrement: fieldIncr,
+			Comment:       fieldComt,
 		})
 	}
 	return
 }
 
 func getFieldName(tf *reflect.StructField) string {
-	db_tag_list := strings.SplitN(tf.Tag.Get("db"), ",", 2)
-	if nil == db_tag_list || 0 == len(db_tag_list) || "" == db_tag_list[0] {
+	dbTagList := strings.SplitN(tf.Tag.Get("db"), ",", 2)
+	if nil == dbTagList || 0 == len(dbTagList) || "" == dbTagList[0] {
 		// no db tags, this field would be ignored
-		// return _fieldNameToSql(tf.Name)
+		// return _fieldNameToSQL(tf.Name)
 		return ""
-	} else {
-		return db_tag_list[0]
 	}
+
+	return dbTagList[0]
 }
 
 func getFieldType(tf *reflect.StructField, dft string) string {
 	t := _readMysqlxTag(tf, "type")
 	if "" == t {
 		return dft
-	} else {
-		if 'u' == t[0] {
-			return t[1:] + " unsigned"
-		} else {
-			return t
-		}
 	}
+	if 'u' == t[0] {
+		return t[1:] + " unsigned"
+	}
+	return t
 }
 
 func getFieldNullable(tf *reflect.StructField, dft bool) bool {
@@ -511,14 +511,13 @@ func getFieldDefault(tf *reflect.StructField, category category, nullable bool, 
 	n := _readMysqlxTag(tf, "default")
 	if n != "" {
 		switch category {
-		case String:
+		case _String:
 			return "'" + strings.Replace(n, "'", "\\'", -1) + "'"
-		case DateTime:
+		case _DateTime:
 			if n == "0" {
 				return "0"
-			} else {
-				return "'" + strings.Replace(n, "_", " ", -1) + "'"
 			}
+			return "'" + strings.Replace(n, "_", " ", -1) + "'"
 		default:
 			return n
 		}
@@ -528,13 +527,13 @@ func getFieldDefault(tf *reflect.StructField, category category, nullable bool, 
 			return "NULL"
 		}
 		switch category {
-		case String:
+		case _String:
 			return "''"
-		case Integer, Float:
+		case _Integer, _Float:
 			return "0"
-		case Bool:
+		case _Bool:
 			return "FALSE"
-		case DateTime:
+		case _DateTime:
 			switch strings.ToLower(fieldTypes[0]) {
 			case "timestamp":
 				// return "convert_tz('1970-01-01 00:00:01', '+00:00', @@time_zone)"
@@ -557,12 +556,12 @@ func getFieldDefault(tf *reflect.StructField, category category, nullable bool, 
 }
 
 func getFieldComment(tf *reflect.StructField) string {
-	full_tag := tf.Tag.Get("comment")
-	return strings.Trim(full_tag, " \t")
+	fullTag := tf.Tag.Get("comment")
+	return strings.Trim(fullTag, " \t")
 }
 
 // tools only for this file
-func _fieldNameToSql(field string) string {
+func _fieldNameToSQL(field string) string {
 	buff := bytes.Buffer{}
 	for _, c := range field {
 		if c >= 'A' && c <= 'Z' {
@@ -578,11 +577,11 @@ func _fieldNameToSql(field string) string {
 }
 
 func _readMysqlxTag(tf *reflect.StructField, key string) (value string) {
-	full_tag := tf.Tag.Get("mysqlx")
-	kv_str_parts := strings.Split(full_tag, " ")
+	fullTag := tf.Tag.Get("mysqlx")
+	kvStrParts := strings.Split(fullTag, " ")
 
 	// search for the key
-	for _, s := range kv_str_parts {
+	for _, s := range kvStrParts {
 		kv := strings.SplitN(s, ":", 2)
 		if nil == kv || len(kv) < 2 {
 			continue

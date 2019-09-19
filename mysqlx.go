@@ -16,34 +16,37 @@ type dbInfo struct {
 	Name sql.NullString `db:"database()"`
 }
 
+// Database returns database name in DB
 func (d *DB) Database() string {
 	return d.param.DBName
 }
 
+// New initialize a *DB object with a given *sqlx.DB, which should be connect a certain database.
 func New(db *sqlx.DB) (ret *DB, err error) {
 	if nil == db {
 		return nil, fmt.Errorf("nil *sqlx.DB")
 	}
 
 	// check whether db was connected to a certain databases
-	var db_list []dbInfo
-	err = db.Select(&db_list, "SELECT database()")
+	var dbList []dbInfo
+	err = db.Select(&dbList, "SELECT database()")
 	if err != nil {
 		return nil, err
 	}
-	if nil == db_list || 0 == len(db_list) {
+	if nil == dbList || 0 == len(dbList) {
 		return nil, fmt.Errorf("Cannot determine database name in sqlx")
 	}
-	if false == db_list[0].Name.Valid {
+	if false == dbList[0].Name.Valid {
 		return nil, fmt.Errorf("sqlx is not using any database")
 	}
 
 	ret = &DB{}
 	ret.db = db
-	ret.param.DBName = db_list[0].Name.String
+	ret.param.DBName = dbList[0].Name.String
 	return
 }
 
+// Open initialize a *DB object with a valid *sqlx.DB
 func Open(param Param) (ret *DB, err error) {
 	// check param
 	if "" == param.Host {
@@ -84,15 +87,15 @@ func Open(param Param) (ret *DB, err error) {
 	}
 
 	// test whether we can read data content
-	var db_list []dbInfo
-	err = ret.db.Select(&db_list, "SELECT database()")
+	var dbList []dbInfo
+	err = ret.db.Select(&dbList, "SELECT database()")
 	if err != nil {
 		return nil, err
 	}
-	if nil == db_list || 0 == len(db_list) {
+	if nil == dbList || 0 == len(dbList) {
 		return nil, fmt.Errorf("Cannot determine database name in sqlx")
 	}
-	if false == db_list[0].Name.Valid {
+	if false == dbList[0].Name.Valid {
 		return nil, fmt.Errorf("sqlx is not using any database")
 	}
 
@@ -105,8 +108,8 @@ func keepAlive(d *DB) {
 	defer atomic.StoreInt32(&d.isKeepingAlive, 0)
 
 	for true {
-		should_keep_alive := atomic.LoadInt32(&d.shouldKeepAlive)
-		if should_keep_alive <= 0 {
+		shouldKeepAlive := atomic.LoadInt32(&d.shouldKeepAlive)
+		if shouldKeepAlive <= 0 {
 			return
 		}
 
@@ -122,13 +125,15 @@ func keepAlive(d *DB) {
 	return
 }
 
+// Sqlx return the *sqlx.DB object
 func (d *DB) Sqlx() *sqlx.DB {
 	return d.db
 }
 
+// KeepAlive automatically keeps alive with database
 func (d *DB) KeepAlive() {
-	is_keeping_alive := atomic.LoadInt32(&d.isKeepingAlive)
-	if is_keeping_alive > 0 {
+	isKeepingAlive := atomic.LoadInt32(&d.isKeepingAlive)
+	if isKeepingAlive > 0 {
 		return
 	}
 
@@ -137,6 +142,7 @@ func (d *DB) KeepAlive() {
 	return
 }
 
+// StopKeepAlive stops the keep-alive operation
 func (d *DB) StopKeepAlive() {
 	atomic.StoreInt32(&d.shouldKeepAlive, 0)
 }

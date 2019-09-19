@@ -102,7 +102,7 @@ func testCreateNoAutoIncrement(t *testing.T, d *DB) {
 // some expection / error test
 func testCreateTableMiscError(t *testing.T, d *DB) {
 	var err error
-	check_expected_error := func(msg string) {
+	checkExpectedError := func(msg string) {
 		if err == nil {
 			t.Errorf("expected error when '%s' but no error raised", msg)
 		} else {
@@ -112,7 +112,7 @@ func testCreateTableMiscError(t *testing.T, d *DB) {
 
 	// ----
 	err = d.CreateTable(SimpleStruct{})
-	check_expected_error("missing table name")
+	checkExpectedError("missing table name")
 
 	// ----
 	err = d.CreateTable(SimpleStruct{}, Options{
@@ -121,7 +121,7 @@ func testCreateTableMiscError(t *testing.T, d *DB) {
 			{},
 		},
 	})
-	check_expected_error("missing index content")
+	checkExpectedError("missing index content")
 
 	// ----
 	err = d.CreateTable(SimpleStruct{}, Options{
@@ -130,7 +130,7 @@ func testCreateTableMiscError(t *testing.T, d *DB) {
 			{},
 		},
 	})
-	check_expected_error("missing unique content")
+	checkExpectedError("missing unique content")
 
 	return
 }

@@ -70,34 +70,34 @@ func TestQuery(t *testing.T) {
 	}
 
 	// const SHOULD_BE = "`id`, `first_name`, `middle_name`, `family_name`, `full_name`, `gender`, `birth_date`, `nation`"
-	select_fields, err := db.SelectFields(User{})
+	selectFields, err := db.SelectFields(User{})
 	if err != nil {
 		return
 	}
-	t.Logf("fields: %s", select_fields)
+	t.Logf("fields: %s", selectFields)
 
 	// insert one
-	new_disney := Disney{}
-	new_disney.FirstName = sql.NullString{Valid: true, String: "Walter"}
-	new_disney.MiddleName = sql.NullString{Valid: true, String: "Elias"}
-	new_disney.FamilyName = sql.NullString{Valid: true, String: "Disney"}
-	new_disney.FullName = "Walter Disney"
-	new_disney.Gender = "Male"
-	new_disney.BirthDate = time.Date(1901, 12, 5, 0, 0, 0, 0, time.UTC)
-	new_disney.Nationality = "U.S."
-	new_disney.UpdateTimestamp = time.Now().Unix()
-	new_disney.Certified = sql.NullBool{Valid: true, Bool: true}
-	new_disney.DieTime = mariadb.NullTime{Valid: true, Time: time.Date(1966, 12, 15, 14, 30, 0, 0, time.UTC)}
-	new_disney.IsBoss = true
+	newDisney := Disney{}
+	newDisney.FirstName = sql.NullString{Valid: true, String: "Walter"}
+	newDisney.MiddleName = sql.NullString{Valid: true, String: "Elias"}
+	newDisney.FamilyName = sql.NullString{Valid: true, String: "Disney"}
+	newDisney.FullName = "Walter Disney"
+	newDisney.Gender = "Male"
+	newDisney.BirthDate = time.Date(1901, 12, 5, 0, 0, 0, 0, time.UTC)
+	newDisney.Nationality = "U.S."
+	newDisney.UpdateTimestamp = time.Now().Unix()
+	newDisney.Certified = sql.NullBool{Valid: true, Bool: true}
+	newDisney.DieTime = mariadb.NullTime{Valid: true, Time: time.Date(1966, 12, 15, 14, 30, 0, 0, time.UTC)}
+	newDisney.IsBoss = true
 
-	keys, values, err := db.InsertFields(new_disney, true)
+	keys, values, err := db.InsertFields(newDisney, true)
 	if err != nil {
 		return
 	}
 	t.Logf("Keys: %v", keys)
 	t.Logf("Vals: %v", values)
 
-	res, err := db.Insert(new_disney)
+	res, err := db.Insert(newDisney)
 	if err != nil {
 		t.Errorf("Insert Walter Disney error: %v", err)
 		return
@@ -105,7 +105,7 @@ func TestQuery(t *testing.T) {
 	showResult(t, res)
 
 	// insert another one thrice
-	new_user := User{
+	newUser := User{
 		FirstName:       sql.NullString{Valid: true, String: "Diane"},
 		MiddleName:      sql.NullString{Valid: true, String: "Disney"},
 		FamilyName:      sql.NullString{Valid: true, String: "Miller"},
@@ -116,7 +116,7 @@ func TestQuery(t *testing.T) {
 		UpdateTimestamp: time.Now().Unix(),
 	}
 
-	keys, values, err = db.InsertFields(new_user, false)
+	keys, values, err = db.InsertFields(newUser, false)
 	if err != nil {
 		t.Errorf("Insert Diane Miller error: %v", err)
 		return
@@ -126,7 +126,7 @@ func TestQuery(t *testing.T) {
 
 	// insert struct
 	for range make([]int, 3) {
-		res, err := db.Insert(new_user)
+		res, err := db.Insert(newUser)
 		if err != nil {
 			return
 		}
@@ -134,7 +134,7 @@ func TestQuery(t *testing.T) {
 	}
 
 	// insert pointer
-	res, err = db.Insert(new_user)
+	res, err = db.Insert(newUser)
 	if err != nil {
 		return
 	}
@@ -235,16 +235,16 @@ func TestSelectOrInsert(t *testing.T) {
 	if err != nil {
 		t.Errorf("SelectOrInsertOne failed: %v", err)
 		return
-	} else {
-		showResult(t, res)
-		t.Logf("Got return: %+v", all)
 	}
+	showResult(t, res)
+	t.Logf("Got return: %+v", all)
+
 	if nil == all || 0 == len(all) {
 		t.Errorf("no data returned")
 		return
 	}
 
-	last_insert_id := all[0].ID
+	lastInsertID := all[0].ID
 
 	// second insert
 	res, err = d.SelectOrInsert(abigai, &all,
@@ -255,17 +255,17 @@ func TestSelectOrInsert(t *testing.T) {
 	if err != nil {
 		t.Errorf("SelectOrInsertOne failed: %v", err)
 		return
-	} else {
-		showResult(t, res)
-		t.Logf("Got return: %+v", all)
 	}
+	showResult(t, res)
+	t.Logf("Got return: %+v", all)
+
 	if nil == all || 0 == len(all) {
 		t.Errorf("no data returned")
 		return
 	}
 
-	if all[0].ID != last_insert_id {
-		t.Errorf("duplicated insert detected: %d <> %d", last_insert_id, all[0].ID)
+	if all[0].ID != lastInsertID {
+		t.Errorf("duplicated insert detected: %d <> %d", lastInsertID, all[0].ID)
 		return
 	}
 
@@ -279,9 +279,9 @@ func TestSelectOrInsert(t *testing.T) {
 		t.Errorf("InsertIfNotExists failed")
 	} else {
 		showResult(t, res)
-		insert_id, err := res.LastInsertId()
-		if err == nil && insert_id != 0 {
-			t.Errorf("should NOT inserted, got insert_id: %d", insert_id)
+		insertID, err := res.LastInsertId()
+		if err == nil && insertID != 0 {
+			t.Errorf("should NOT inserted, got insertID: %d", insertID)
 			return
 		}
 	}
@@ -290,9 +290,9 @@ func TestSelectOrInsert(t *testing.T) {
 }
 
 func showResult(t *testing.T, res sql.Result) {
-	last_insert_id, err := res.LastInsertId()
+	lastInsertID, err := res.LastInsertId()
 	if err == nil {
-		t.Logf("LastInsertId = %d", last_insert_id)
+		t.Logf("LastInsertId = %d", lastInsertID)
 	}
 
 	affected, err := res.RowsAffected()

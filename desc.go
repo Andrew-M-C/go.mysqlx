@@ -31,7 +31,7 @@ type _Field struct {
 	// Comment  string         `db:"Comment"`
 }
 
-// const _READ_TABLE_FIELDS = `
+// const _ReadTableFields = `
 // SELECT ORDINAL_POSITION as ` + "`No`" + `,
 // 	COLUMN_NAME as ` + "`Field`" + `,
 // 	COLUMN_TYPE as ` + "`Type`" + `,
@@ -44,8 +44,9 @@ type _Field struct {
 // WHERE table_schema='%s' and table_name='%s' ORDER BY ORDINAL_POSITION;
 // `
 
-const _READ_TABLE_FIELDS = "desc `%s`"
+const _ReadTableFields = "desc `%s`"
 
+// ReadTableFields returns all fields in given table
 func (d *DB) ReadTableFields(table string) (ret []*Field, err error) {
 	if nil == d.db {
 		return nil, fmt.Errorf("mysqlx not initialized")
@@ -54,7 +55,7 @@ func (d *DB) ReadTableFields(table string) (ret []*Field, err error) {
 		return nil, fmt.Errorf("empty table name")
 	}
 
-	query := fmt.Sprintf(_READ_TABLE_FIELDS, table)
+	query := fmt.Sprintf(_ReadTableFields, table)
 	var fields []*_Field
 	err = d.db.Select(&fields, query)
 	if err != nil {
@@ -66,7 +67,7 @@ func (d *DB) ReadTableFields(table string) (ret []*Field, err error) {
 
 	ret = make([]*Field, 0, len(fields))
 	for _, f := range fields {
-		ret_f := Field{
+		retF := Field{
 			Name: f.Field,
 			Type: f.Type,
 			// Comment: f.Comment,
@@ -74,26 +75,26 @@ func (d *DB) ReadTableFields(table string) (ret []*Field, err error) {
 		// nullable
 		switch strings.ToUpper(f.Nullable) {
 		case "YES", "TRUE":
-			ret_f.Nullable = true
+			retF.Nullable = true
 		default:
-			ret_f.Nullable = false
+			retF.Nullable = false
 		}
 		// Default
 		if f.Default.Valid {
 			if strings.Contains(f.Type, "char") || strings.Contains(f.Type, "text") {
-				ret_f.Default = "'" + strings.Replace(f.Default.String, "'", "\\'", -1) + "'"
+				retF.Default = "'" + strings.Replace(f.Default.String, "'", "\\'", -1) + "'"
 			} else {
-				ret_f.Default = f.Default.String
+				retF.Default = f.Default.String
 			}
 		} else {
-			ret_f.Default = "NULL"
+			retF.Default = "NULL"
 		}
 		// auto_increment
 		if strings.Contains(f.Extra, "auto_increment") {
-			ret_f.AutoIncrement = true
+			retF.AutoIncrement = true
 		}
 		// append
-		ret = append(ret, &ret_f)
+		ret = append(ret, &retF)
 	}
 
 	return
@@ -104,7 +105,7 @@ type _Index struct {
 	Table        string         `db:"Table"`
 	NonUnique    int            `db:"Non_unique"`
 	KeyName      string         `db:"Key_name"`
-	SqlInIndex   int            `db:"Seq_in_index"`
+	SeqInIndex   int            `db:"Seq_in_index"`
 	ColumnName   string         `db:"Column_name"`
 	Collation    string         `db:"Collation"`
 	Cardinality  string         `db:"Cardinality"`
@@ -116,8 +117,9 @@ type _Index struct {
 	IndexComment string         `db:"Index_comment"`
 }
 
-const _READ_TABLE_INDEXES = "show index from `%s`"
+const _ReadTableIndexes = "show index from `%s`"
 
+// ReadTableIndexes returns all indexes and uniques of given table name
 func (d *DB) ReadTableIndexes(table string) (map[string]*Index, map[string]*Unique, error) {
 	if nil == d.db {
 		return nil, nil, fmt.Errorf("mysqlx not initialized")
@@ -129,16 +131,16 @@ func (d *DB) ReadTableIndexes(table string) (map[string]*Index, map[string]*Uniq
 	var err error
 	var indexes []*_Index
 
-	query := fmt.Sprintf(_READ_TABLE_INDEXES, table)
+	query := fmt.Sprintf(_ReadTableIndexes, table)
 	err = d.db.Select(&indexes, query)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	index_map := make(map[string]*Index)
-	unique_map := make(map[string]*Unique)
+	indexMap := make(map[string]*Index)
+	uniqueMap := make(map[string]*Unique)
 	if nil == indexes || 0 == len(indexes) {
-		return index_map, unique_map, nil
+		return indexMap, uniqueMap, nil
 	}
 
 	for _, idx := range indexes {
@@ -147,56 +149,60 @@ func (d *DB) ReadTableIndexes(table string) (map[string]*Index, map[string]*Uniq
 		}
 		if idx.NonUnique > 0 {
 			// Jut a normal index
-			index, exist := index_map[idx.KeyName]
+			index, exist := indexMap[idx.KeyName]
 			if false == exist {
 				index = &Index{
 					Name:   idx.KeyName,
 					Fields: make([]string, 0),
 				}
-				index_map[idx.KeyName] = index
+				indexMap[idx.KeyName] = index
 			}
 			index.Fields = append(index.Fields, idx.ColumnName)
 		} else {
 			// unique
-			unique, exist := unique_map[idx.KeyName]
+			unique, exist := uniqueMap[idx.KeyName]
 			if false == exist {
 				unique = &Unique{
 					Name:   idx.KeyName,
 					Fields: make([]string, 0),
 				}
-				unique_map[idx.KeyName] = unique
+				uniqueMap[idx.KeyName] = unique
 			}
 			unique.Fields = append(unique.Fields, idx.ColumnName)
 		}
 	}
 
-	return index_map, unique_map, nil
+	return indexMap, uniqueMap, nil
 }
 
+// ReadStructFields returns all valid SQL fields by given structure and will buffer it
 func (d *DB) ReadStructFields(s interface{}) (ret []*Field, err error) {
 	// read from buffer
-	intf_name := reflect.TypeOf(s)
-	field_value, exist := d.bufferedFields.Load(intf_name)
+	intfName := reflect.TypeOf(s)
+	fieldValue, exist := d.bufferedFields.Load(intfName)
 	if exist {
-		return field_value.([]*Field), nil
+		return fieldValue.([]*Field), nil
 	}
 
 	// read now
 	ret, err = ReadStructFields(s)
 	if err != nil {
-		d.bufferedFields.Store(intf_name, ret)
+		d.bufferedFields.Store(intfName, ret)
 	}
 	return
 }
 
-func (_ *DB) StructFields(s interface{}) (ret []*Field, err error) {
+// StructFields is the same as ReadStructFields
+func (*DB) StructFields(s interface{}) (ret []*Field, err error) {
 	return ReadStructFields(s)
 }
 
+// StructFields returns all valid SQL fields by given structure
 func StructFields(s interface{}) (ret []*Field, err error) {
 	return ReadStructFields(s)
 }
 
+// ReadStructFields is the same as StructFields
 func ReadStructFields(s interface{}) (ret []*Field, err error) {
 	t := reflect.TypeOf(s)
 	v := reflect.ValueOf(s)

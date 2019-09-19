@@ -13,21 +13,22 @@ import (
 )
 
 var (
-	_time_regex     = regexp.MustCompile(`^time(\d)$`)
-	_datetime_regex = regexp.MustCompile(`^datetime(\d)$`)
+	_timeRegex     = regexp.MustCompile(`^time(\d)$`)
+	_datetimeRegex = regexp.MustCompile(`^datetime(\d)$`)
 )
 
 // ========
-// SELECT
+
+// SelectFields returns all valid SQL fields in given structure
 func (d *DB) SelectFields(s interface{}) (string, error) {
 	// TODO: read interface until we get a struct
 
 	// read from buffer
-	intf_name := reflect.TypeOf(s)
-	// log.Printf("select type %v", intf_name)
-	field_value, exist := d.bufferedSelectFields.Load(intf_name)
+	intfName := reflect.TypeOf(s)
+	// log.Printf("select type %v", intfName)
+	fieldValue, exist := d.bufferedSelectFields.Load(intfName)
 	if exist {
-		return field_value.(string), nil
+		return fieldValue.(string), nil
 	}
 
 	fields, err := d.ReadStructFields(s)
@@ -35,20 +36,20 @@ func (d *DB) SelectFields(s interface{}) (string, error) {
 		return "", err
 	}
 
-	field_names := make([]string, 0, len(fields))
+	fieldNames := make([]string, 0, len(fields))
 	for _, f := range fields {
-		field_names = append(field_names, "`"+f.Name+"`")
+		fieldNames = append(fieldNames, "`"+f.Name+"`")
 	}
 
-	ret := strings.Join(field_names, ", ")
-	d.bufferedSelectFields.Store(intf_name, ret)
+	ret := strings.Join(fieldNames, ", ")
+	d.bufferedSelectFields.Store(intfName, ret)
 	return ret, nil
 }
 
 func (d *DB) getFieldMap(prototype interface{}) (fieldMap map[string]*Field, err error) {
-	intf_name := reflect.TypeOf(prototype)
-	if field_map_value, exist := d.bufferedFieldMaps.Load(intf_name); exist {
-		fieldMap = field_map_value.(map[string]*Field)
+	intfName := reflect.TypeOf(prototype)
+	if fieldMapValue, exist := d.bufferedFieldMaps.Load(intfName); exist {
+		fieldMap = fieldMapValue.(map[string]*Field)
 	} else {
 		fieldMap = make(map[string]*Field)
 		var fields []*Field
@@ -60,32 +61,32 @@ func (d *DB) getFieldMap(prototype interface{}) (fieldMap map[string]*Field, err
 		for _, f := range fields {
 			fieldMap[f.Name] = f
 		}
-		d.bufferedFieldMaps.Store(intf_name, fieldMap)
+		d.bufferedFieldMaps.Store(intfName, fieldMap)
 	}
 	return
 }
 
 func (d *DB) getIncrementField(prototype interface{}) (field *Field, err error) {
-	intf_name := reflect.TypeOf(prototype)
-	if field_value, exist := d.bufferedIncrField.Load(intf_name); exist {
-		field = field_value.(*Field)
+	intfName := reflect.TypeOf(prototype)
+	if fieldValue, exist := d.bufferedIncrField.Load(intfName); exist {
+		field = fieldValue.(*Field)
 		return
-	} else {
-		var fields []*Field
-		fields, err = d.ReadStructFields(prototype)
-		if err != nil {
-			return
-		}
-
-		for _, f := range fields {
-			if f.AutoIncrement {
-				d.bufferedIncrField.Store(intf_name, f)
-				return f, nil
-			}
-		}
-
-		return nil, fmt.Errorf("'%s' has no increment field", intf_name)
 	}
+
+	var fields []*Field
+	fields, err = d.ReadStructFields(prototype)
+	if err != nil {
+		return
+	}
+
+	for _, f := range fields {
+		if f.AutoIncrement {
+			d.bufferedIncrField.Store(intfName, f)
+			return f, nil
+		}
+	}
+
+	return nil, fmt.Errorf("'%s' has no increment field", intfName)
 }
 
 type _parsedArgs struct {
@@ -161,6 +162,7 @@ func (d *DB) handleArgs(prototype interface{}, args []interface{}) (ret *_parsed
 	return
 }
 
+// Select execute a SQL select statement
 func (d *DB) Select(dst interface{}, args ...interface{}) error {
 	if nil == d.db {
 		return fmt.Errorf("mysqlx not initialized")
@@ -192,42 +194,42 @@ func (d *DB) Select(dst interface{}, args ...interface{}) error {
 
 	// Should be Xxx
 	prototype := reflect.New(ty).Elem().Interface()
-	fields_str, err := d.SelectFields(prototype)
+	fieldsStr, err := d.SelectFields(prototype)
 	if err != nil {
 		// log.Printf("read fields failed: %v", err)
 		return err
 	}
 
 	// parse arguments
-	parsed_args, err := d.handleArgs(prototype, args)
+	parsedArgs, err := d.handleArgs(prototype, args)
 	if err != nil {
 		return err
 	}
 
 	// pack SELECT statements
-	var offset_str string
-	if parsed_args.Offset > 0 {
-		offset_str = fmt.Sprintf("OFFSET %d", parsed_args.Offset)
+	var offsetStr string
+	if parsedArgs.Offset > 0 {
+		offsetStr = fmt.Sprintf("OFFSET %d", parsedArgs.Offset)
 	}
 
-	var limit_str string
-	if parsed_args.Limit > 0 {
-		limit_str = fmt.Sprintf("LIMIT %d", parsed_args.Limit)
+	var limitStr string
+	if parsedArgs.Limit > 0 {
+		limitStr = fmt.Sprintf("LIMIT %d", parsedArgs.Limit)
 	}
 
-	var order_str string
-	if len(parsed_args.OrderList) > 0 {
-		order_str = "ORDER BY " + strings.Join(parsed_args.OrderList, ", ")
+	var orderStr string
+	if len(parsedArgs.OrderList) > 0 {
+		orderStr = "ORDER BY " + strings.Join(parsedArgs.OrderList, ", ")
 	}
 
-	var cond_str string
-	if len(parsed_args.CondList) > 0 {
-		cond_str = "WHERE " + strings.Join(parsed_args.CondList, " AND ")
+	var condStr string
+	if len(parsedArgs.CondList) > 0 {
+		condStr = "WHERE " + strings.Join(parsedArgs.CondList, " AND ")
 	}
 
 	query := fmt.Sprintf(
 		"SELECT %s FROM `%s` %s %s %s %s",
-		fields_str, parsed_args.Opt.TableName, cond_str, order_str, limit_str, offset_str,
+		fieldsStr, parsedArgs.Opt.TableName, condStr, orderStr, limitStr, offsetStr,
 	)
 	// log.Println(query)
 
@@ -317,23 +319,24 @@ func packCond(c *Cond, fieldMap map[string]*Field) string {
 }
 
 // ========
-// INSERT
+
+// InsertFields return keys and values for inserting. Auto-increment fields will be ignored
 func (d *DB) InsertFields(s interface{}, backQuoted bool) (keys []string, values []string, err error) {
 	t := reflect.TypeOf(s)
 	v := reflect.ValueOf(s)
 
 	// read from buffer
-	field_map, err := d.getFieldMap(s)
+	fieldMap, err := d.getFieldMap(s)
 	if err != nil {
 		return
 	}
 
 	// handle each fields
-	num_field := t.NumField()
-	keys = make([]string, 0, num_field)
-	values = make([]string, 0, num_field)
+	numField := t.NumField()
+	keys = make([]string, 0, numField)
+	values = make([]string, 0, numField)
 
-	for i := 0; i < num_field; i++ {
+	for i := 0; i < numField; i++ {
 		tf := t.Field(i) // *StructField
 		vf := v.Field(i) // *Value
 		if false == vf.CanInterface() {
@@ -341,8 +344,8 @@ func (d *DB) InsertFields(s interface{}, backQuoted bool) (keys []string, values
 			continue
 		}
 
-		field_name := getFieldName(&tf)
-		if field_name == "" || field_name == "-" {
+		fieldName := getFieldName(&tf)
+		if fieldName == "" || fieldName == "-" {
 			if tf.Type.Kind() != reflect.Struct {
 				continue // skip this
 			}
@@ -351,7 +354,7 @@ func (d *DB) InsertFields(s interface{}, backQuoted bool) (keys []string, values
 		var val string
 		intf := vf.Interface()
 
-		f, exist := field_map[field_name]
+		f, exist := fieldMap[fieldName]
 		if false == exist || f.AutoIncrement {
 			continue
 		}
@@ -378,26 +381,26 @@ func (d *DB) InsertFields(s interface{}, backQuoted bool) (keys []string, values
 		case mysql.NullTime:
 			nt := intf.(mysql.NullTime)
 			if nt.Valid {
-				val = convTimeToString(nt.Time, field_map, field_name)
+				val = convTimeToString(nt.Time, fieldMap, fieldName)
 			} else {
 				val = "NULL"
 			}
 		case time.Time:
-			val = convTimeToString(intf.(time.Time), field_map, field_name)
+			val = convTimeToString(intf.(time.Time), fieldMap, fieldName)
 		default:
 			if reflect.Struct == tf.Type.Kind() {
 				// log.Println("Embedded struct: ", tf.Type)
-				embed_key, embed_value, err := d.InsertFields(vf.Interface(), false)
+				embedKey, embedValue, err := d.InsertFields(vf.Interface(), false)
 				if err != nil {
 					return nil, nil, err
 				}
-				keys = append(keys, embed_key...)
-				values = append(values, embed_value...)
+				keys = append(keys, embedKey...)
+				values = append(values, embedValue...)
 			}
 			continue
 		}
 
-		keys = append(keys, field_name)
+		keys = append(keys, fieldName)
 		values = append(values, val)
 		// continue
 	}
@@ -411,6 +414,7 @@ func (d *DB) InsertFields(s interface{}, backQuoted bool) (keys []string, values
 	return
 }
 
+// Insert insert a given structure. auto-increment fields will be ignored
 func (d *DB) Insert(v interface{}, opts ...Options) (result sql.Result, err error) {
 	if nil == d.db {
 		return nil, fmt.Errorf("nil *sqlx.DB")
@@ -448,17 +452,15 @@ func (d *DB) Insert(v interface{}, opts ...Options) (result sql.Result, err erro
 func convNullStringToString(s sql.NullString, quote string) string {
 	if false == s.Valid {
 		return "NULL"
-	} else {
-		return addQuoteToString(s.String, quote)
 	}
+	return addQuoteToString(s.String, quote)
 }
 
 func convNullInt64ToString(n sql.NullInt64) string {
 	if false == n.Valid {
 		return "NULL"
-	} else {
-		return strconv.FormatInt(n.Int64, 10)
 	}
+	return strconv.FormatInt(n.Int64, 10)
 }
 
 func convNullBoolToString(b sql.NullBool) string {
@@ -474,25 +476,22 @@ func convNullBoolToString(b sql.NullBool) string {
 func convNullFloat64ToString(f sql.NullFloat64) string {
 	if false == f.Valid {
 		return "NULL"
-	} else {
-		return fmt.Sprintf("%f", f.Float64)
 	}
+	return fmt.Sprintf("%f", f.Float64)
 }
 
 func convBoolToString(b bool) string {
 	if b {
 		return "TRUE"
-	} else {
-		return "FALSE"
 	}
+	return "FALSE"
 }
 
 func addQuoteToString(s, quote string) string {
 	if quote == `"` {
 		return `"` + strings.Replace(s, "\"", "\\\"", -1) + `"`
-	} else {
-		return `'` + strings.Replace(s, "'", "\\'", -1) + `'`
 	}
+	return `'` + strings.Replace(s, "'", "\\'", -1) + `'`
 }
 
 func convTimeToString(t time.Time, fieldMap map[string]*Field, fieldName string) string {
@@ -508,20 +507,20 @@ func convTimeToString(t time.Time, fieldMap map[string]*Field, fieldName string)
 	case "year":
 		return t.Format("'2006'")
 	default:
-		if sub := _datetime_regex.FindStringSubmatch(ty); sub != nil && len(sub) > 0 {
+		if sub := _datetimeRegex.FindStringSubmatch(ty); sub != nil && len(sub) > 0 {
 			count, _ := strconv.Atoi(sub[0])
 			if 0 == count {
 				return t.Format("'2006-01-02 15:04:05'")
-			} else {
-				return t.Format("'2006-01-02 15:04:05." + strings.Repeat("0", count) + "'")
 			}
-		} else if sub := _time_regex.FindStringSubmatch(ty); sub != nil && len(sub) > 0 {
+			return t.Format("'2006-01-02 15:04:05." + strings.Repeat("0", count) + "'")
+
+		} else if sub := _timeRegex.FindStringSubmatch(ty); sub != nil && len(sub) > 0 {
 			count, _ := strconv.Atoi(sub[0])
 			if 0 == count {
 				return t.Format("'15:04:05'")
-			} else {
-				return t.Format("'15:04:05." + strings.Repeat("0", count) + "'")
 			}
+			return t.Format("'15:04:05." + strings.Repeat("0", count) + "'")
+
 		} else {
 			return "NULL"
 		}
@@ -529,7 +528,8 @@ func convTimeToString(t time.Time, fieldMap map[string]*Field, fieldName string)
 }
 
 // ========
-// UPDATE
+
+// Update execute UPDATE SQL statement with given structure and conditions
 func (d *DB) Update(prototype interface{}, fields map[string]interface{}, args ...interface{}) (sql.Result, error) {
 	if nil == d.db {
 		return nil, fmt.Errorf("nil *sqlx.DB")
@@ -553,8 +553,8 @@ func (d *DB) Update(prototype interface{}, fields map[string]interface{}, args .
 	}
 
 	opt := mergeOptions(prototype)
-	var limit_str string
-	var cond_str string
+	var limitStr string
+	var condStr string
 
 	// handle fields
 	kv, err := d.genUpdateKVs(prototype, fields)
@@ -565,25 +565,25 @@ func (d *DB) Update(prototype interface{}, fields map[string]interface{}, args .
 		return nil, fmt.Errorf("no value specified")
 	}
 
-	parsed_args, err := d.handleArgs(prototype, args)
+	parsedArgs, err := d.handleArgs(prototype, args)
 	if err != nil {
 		return nil, err
 	}
-	if parsed_args.Limit > 0 {
-		limit_str = "LIMIT " + strconv.Itoa(parsed_args.Limit)
+	if parsedArgs.Limit > 0 {
+		limitStr = "LIMIT " + strconv.Itoa(parsedArgs.Limit)
 	}
 
-	if len(parsed_args.CondList) > 0 {
-		cond_str = "WHERE " + strings.Join(parsed_args.CondList, " AND ")
+	if len(parsedArgs.CondList) > 0 {
+		condStr = "WHERE " + strings.Join(parsedArgs.CondList, " AND ")
 	}
-	query := fmt.Sprintf("UPDATE `%s` SET %s %s %s", opt.TableName, strings.Join(kv, ", "), cond_str, limit_str)
+	query := fmt.Sprintf("UPDATE `%s` SET %s %s %s", opt.TableName, strings.Join(kv, ", "), condStr, limitStr)
 	// log.Println(query)
 
 	return d.db.Exec(query)
 }
 
 func (d *DB) genUpdateKVs(prototype interface{}, fields map[string]interface{}) ([]string, error) {
-	field_map, err := d.getFieldMap(prototype)
+	fieldMap, err := d.getFieldMap(prototype)
 	if err != nil {
 		return nil, err
 	}
@@ -593,7 +593,7 @@ func (d *DB) genUpdateKVs(prototype interface{}, fields map[string]interface{}) 
 		if "" == k {
 			continue
 		}
-		_, exist := field_map[k]
+		_, exist := fieldMap[k]
 		if false == exist {
 			return nil, fmt.Errorf("field '%s' not recognized", k)
 		}
@@ -618,8 +618,8 @@ func (d *DB) genUpdateKVs(prototype interface{}, fields map[string]interface{}) 
 			kv = append(kv, "`"+k+"`"+" = "+addQuoteToString(s, "'"))
 		case time.Time:
 			t := v.(time.Time)
-			val_str := convTimeToString(t, field_map, k)
-			kv = append(kv, "`"+k+"`"+" = "+val_str)
+			valStr := convTimeToString(t, fieldMap, k)
+			kv = append(kv, "`"+k+"`"+" = "+valStr)
 		case nil:
 			kv = append(kv, "`"+k+"`"+" = NULL")
 		}
@@ -628,7 +628,8 @@ func (d *DB) genUpdateKVs(prototype interface{}, fields map[string]interface{}) 
 }
 
 // ========
-// DELETE
+
+// Delete executes SQL DELETE statement with given conditions
 func (d *DB) Delete(prototype interface{}, args ...interface{}) (sql.Result, error) {
 	if nil == d.db {
 		return nil, fmt.Errorf("mysqlx not initialized")
@@ -647,30 +648,30 @@ func (d *DB) Delete(prototype interface{}, args ...interface{}) (sql.Result, err
 	// Should be Xxx
 
 	// parse arguments
-	parsed_args, err := d.handleArgs(prototype, args)
+	parsedArgs, err := d.handleArgs(prototype, args)
 	if err != nil {
 		return nil, err
 	}
 
 	// pack DELETE statements
-	var limit_str string
-	if parsed_args.Limit > 0 {
-		limit_str = fmt.Sprintf("LIMIT %d", parsed_args.Limit)
+	var limitStr string
+	if parsedArgs.Limit > 0 {
+		limitStr = fmt.Sprintf("LIMIT %d", parsedArgs.Limit)
 	}
 
-	var order_str string
-	if len(parsed_args.OrderList) > 0 {
-		order_str = "ORDER BY " + strings.Join(parsed_args.OrderList, ", ")
+	var orderStr string
+	if len(parsedArgs.OrderList) > 0 {
+		orderStr = "ORDER BY " + strings.Join(parsedArgs.OrderList, ", ")
 	}
 
-	var cond_str string
-	if len(parsed_args.CondList) > 0 {
-		cond_str = "WHERE " + strings.Join(parsed_args.CondList, " AND ")
+	var condStr string
+	if len(parsedArgs.CondList) > 0 {
+		condStr = "WHERE " + strings.Join(parsedArgs.CondList, " AND ")
 	}
 
 	query := fmt.Sprintf(
 		"DELETE FROM `%s` %s %s %s",
-		parsed_args.Opt.TableName, cond_str, order_str, limit_str,
+		parsedArgs.Opt.TableName, condStr, orderStr, limitStr,
 	)
 	// log.Println(query)
 
@@ -678,6 +679,8 @@ func (d *DB) Delete(prototype interface{}, args ...interface{}) (sql.Result, err
 }
 
 // ========
+
+// SelectOrInsert executes update-if-not-exists statement
 func (d *DB) SelectOrInsert(insert interface{}, selectResult interface{}, conds ...interface{}) (res sql.Result, err error) {
 	if nil == d.db {
 		return nil, fmt.Errorf("mysqlx not initialized")
@@ -696,17 +699,17 @@ func (d *DB) SelectOrInsert(insert interface{}, selectResult interface{}, conds 
 	// Should be Xxx
 
 	// handle select conditions
-	parsed_args, err := d.handleArgs(insert, conds)
+	parsedArgs, err := d.handleArgs(insert, conds)
 	if err != nil {
 		// log.Printf("handleArgs() failed: %v", err)
 		return nil, err
 	}
-	if 0 == len(parsed_args.CondList) {
+	if 0 == len(parsedArgs.CondList) {
 		return nil, fmt.Errorf("select conditions not given")
 	}
 
 	// should have increment field
-	incr_field, err := d.getIncrementField(insert)
+	incrField, err := d.getIncrementField(insert)
 	if err != nil {
 		return
 	}
@@ -722,28 +725,28 @@ func (d *DB) SelectOrInsert(insert interface{}, selectResult interface{}, conds 
 
 	// log.Printf("keys: %v", keys)
 	// log.Printf("values: %v", values)
-	var first_list []string
-	var second_list []string
-	var third_list []string
+	var firstList []string
+	var secondList []string
+	var thirdList []string
 
-	first_list = make([]string, len(keys))
-	second_list = make([]string, len(keys))
-	third_list = parsed_args.CondList
+	firstList = make([]string, len(keys))
+	secondList = make([]string, len(keys))
+	thirdList = parsedArgs.CondList
 
 	for i, k := range keys {
 		v := values[i]
-		first_list[i] = "`" + k + "`"
-		second_list[i] = fmt.Sprintf("%s AS %s", v, addQuoteToString(k, "'"))
+		firstList[i] = "`" + k + "`"
+		secondList[i] = fmt.Sprintf("%s AS %s", v, addQuoteToString(k, "'"))
 	}
 
-	var random_field string
-	for k := range parsed_args.FieldMap {
-		random_field = k
+	var randomField string
+	for k := range parsedArgs.FieldMap {
+		randomField = k
 		break
 	}
 	query := fmt.Sprintf(
 		"INSERT INTO `%s` (%s) SELECT * FROM (SELECT %s) AS tmp WHERE NOT EXISTS (SELECT `%s` FROM `%s` WHERE %s) LIMIT 1",
-		parsed_args.Opt.TableName, strings.Join(first_list, ", "), strings.Join(second_list, ", "), random_field, parsed_args.Opt.TableName, strings.Join(third_list, " AND "),
+		parsedArgs.Opt.TableName, strings.Join(firstList, ", "), strings.Join(secondList, ", "), randomField, parsedArgs.Opt.TableName, strings.Join(thirdList, " AND "),
 	)
 	// log.Println(query)
 
@@ -759,18 +762,18 @@ func (d *DB) SelectOrInsert(insert interface{}, selectResult interface{}, conds 
 	}
 
 	// determine insert status
-	select_fields, err := d.SelectFields(insert)
+	selectFields, err := d.SelectFields(insert)
 	if err != nil {
 		return res, err
 	}
-	insert_id, err := res.LastInsertId()
+	insertID, err := res.LastInsertId()
 	if err != nil {
 		// inserted, now select
-		query = fmt.Sprintf("SELECT %s FROM `%s` WHERE `%s` = %d", select_fields, parsed_args.Opt.TableName, incr_field.Name, insert_id)
+		query = fmt.Sprintf("SELECT %s FROM `%s` WHERE `%s` = %d", selectFields, parsedArgs.Opt.TableName, incrField.Name, insertID)
 
 	} else {
 		// not inserted, just select as above
-		query = fmt.Sprintf("SELECT %s FROM `%s` WHERE %s", select_fields, parsed_args.Opt.TableName, strings.Join(parsed_args.CondList, " AND "))
+		query = fmt.Sprintf("SELECT %s FROM `%s` WHERE %s", selectFields, parsedArgs.Opt.TableName, strings.Join(parsedArgs.CondList, " AND "))
 	}
 
 	// log.Println(query)
@@ -778,6 +781,8 @@ func (d *DB) SelectOrInsert(insert interface{}, selectResult interface{}, conds 
 }
 
 // ========
+
+//InsertIfNotExists is the same as SelectOrInsert but lacking select statement
 func (d *DB) InsertIfNotExists(insert interface{}, conds ...interface{}) (res sql.Result, err error) {
 	return d.SelectOrInsert(insert, nil, conds...)
 }

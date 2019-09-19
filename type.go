@@ -8,6 +8,7 @@ import (
 	"golang.org/x/sync/syncmap"
 )
 
+// Param identifies connect parameters to a database
 type Param struct {
 	Host   string
 	Port   int
@@ -16,6 +17,7 @@ type Param struct {
 	DBName string
 }
 
+// DB is the main structure for mysqlx
 type DB struct {
 	db    *sqlx.DB
 	param Param
@@ -31,11 +33,13 @@ type DB struct {
 	bufferedIncrField    syncmap.Map // *Field
 }
 
+// Index shows the information of an index setting
 type Index struct {
 	Name   string
 	Fields []string
 }
 
+// Check checks if an index object is valid
 func (i *Index) Check() error {
 	if nil == i.Fields || 0 == len(i.Fields) {
 		return fmt.Errorf("nil fields")
@@ -48,11 +52,13 @@ func (i *Index) Check() error {
 	return nil
 }
 
+// Unique shows the information of a unique setting
 type Unique struct {
 	Name   string
 	Fields []string
 }
 
+// Check checks if an unique object is valid
 func (u *Unique) Check() error {
 	if nil == u.Fields || 0 == len(u.Fields) {
 		return fmt.Errorf("nil fields")
@@ -65,6 +71,7 @@ func (u *Unique) Check() error {
 	return nil
 }
 
+// Field shows information of a field
 type Field struct {
 	Name          string
 	Type          string
@@ -76,6 +83,7 @@ type Field struct {
 	statement string
 }
 
+// Options identifies options and parameters for a structure
 type Options struct {
 	TableName      string
 	TableDescption string
@@ -83,21 +91,24 @@ type Options struct {
 	Uniques        []Unique
 }
 
-// MySQL statement tools
+// Offset is for MySQL offset statement
 type Offset struct {
 	Offset int
 }
 
+// Limit is for MySQL limit statement
 type Limit struct {
 	Limit int
 }
 
+// Cond is for constructing MySQL WHERE statement
 type Cond struct {
 	Param    string
 	Operator string
 	Value    interface{}
 }
 
+// Order is for MySQL ORDER BY statement
 type Order struct {
 	Param string
 	Seq   string

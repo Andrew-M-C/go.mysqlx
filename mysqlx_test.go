@@ -29,12 +29,12 @@ func TestOpen(t *testing.T) {
 
 func TestNew(t *testing.T) {
 	var err error
-	sqlx_db, err := sqlx.Open("mysql", "travis@tcp(localhost:3306)")
+	sqlxDB, err := sqlx.Open("mysql", "travis@tcp(localhost:3306)")
 	if err != nil {
 		panic(err)
 	}
 
-	_, err = New(sqlx_db)
+	_, err = New(sqlxDB)
 	if err != nil {
 		// this is expected
 		// t.Logf("catch expected err message: %v", err)
@@ -44,22 +44,21 @@ func TestNew(t *testing.T) {
 	}
 
 	// ---
-	sqlx_db, err = sqlx.Open("mysql", "travis@tcp(localhost:3306)/db_test")
+	sqlxDB, err = sqlx.Open("mysql", "travis@tcp(localhost:3306)/db_test")
 	if err != nil {
 		panic(err)
 	}
-	if nil == sqlx_db {
+	if nil == sqlxDB {
 		t.Errorf("no sqlx object returned")
 		return
 	}
 
-	db, err := New(sqlx_db)
+	db, err := New(sqlxDB)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 		return
-	} else {
-		t.Logf("database: %s", db.Database())
 	}
+	t.Logf("database: %s", db.Database())
 
 	db, err = New(nil)
 	if err != nil {
