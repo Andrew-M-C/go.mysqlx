@@ -88,16 +88,26 @@ func (d *DB) getIncrementField(prototype interface{}) (field *Field, err error) 
 	}
 }
 
-func (d *DB) handleArgs(prototype interface{}, args []interface{}) (
-	fieldMap map[string]*Field, opt Options, offset int, limit int, condList []string, orderList []string, err error) {
+type _parsedArgs struct {
+	FieldMap  map[string]*Field
+	Opt       Options
+	Offset    int
+	Limit     int
+	CondList  []string
+	OrderList []string
+}
 
-	fieldMap, err = d.getFieldMap(prototype)
+func (d *DB) handleArgs(prototype interface{}, args []interface{}) (ret *_parsedArgs, err error) {
+	ret = &_parsedArgs{
+		CondList:  make([]string, 0, len(args)),
+		OrderList: make([]string, 0, len(args)),
+	}
+
+	ret.FieldMap, err = d.getFieldMap(prototype)
 	if err != nil {
 		return
 	}
-	opt = mergeOptions(prototype)
-	condList = make([]string, 0, len(args))
-	orderList = make([]string, 0, len(args))
+	ret.Opt = mergeOptions(prototype)
 
 	for _, arg := range args {
 		switch arg.(type) {
@@ -106,45 +116,45 @@ func (d *DB) handleArgs(prototype interface{}, args []interface{}) (
 			err = fmt.Errorf("unsupported type %v", t)
 			return
 		case *Options:
-			opt = mergeOptions(prototype, *(arg.(*Options)))
+			ret.Opt = mergeOptions(prototype, *(arg.(*Options)))
 		case Options:
-			opt = mergeOptions(prototype, arg.(Options))
+			ret.Opt = mergeOptions(prototype, arg.(Options))
 		case Limit:
-			limit = arg.(Limit).Limit
+			ret.Limit = arg.(Limit).Limit
 		case *Limit:
-			limit = arg.(*Limit).Limit
+			ret.Limit = arg.(*Limit).Limit
 		case Offset:
-			offset = arg.(Offset).Offset
+			ret.Offset = arg.(Offset).Offset
 		case *Offset:
-			offset = arg.(*Offset).Offset
+			ret.Offset = arg.(*Offset).Offset
 		case Cond:
 			cond := arg.(Cond)
-			c := packCond(&cond, fieldMap)
+			c := packCond(&cond, ret.FieldMap)
 			if "" != c {
-				condList = append(condList, c)
+				ret.CondList = append(ret.CondList, c)
 			}
 		case *Cond:
 			cond := arg.(*Cond)
-			c := packCond(cond, fieldMap)
+			c := packCond(cond, ret.FieldMap)
 			if "" != c {
-				condList = append(condList, c)
+				ret.CondList = append(ret.CondList, c)
 			}
 		case Order:
 			order := arg.(Order)
 			o := packOrder(&order)
 			if "" != o {
-				orderList = append(orderList, o)
+				ret.OrderList = append(ret.OrderList, o)
 			}
 		case *Order:
 			order := arg.(*Order)
 			o := packOrder(order)
 			if "" != o {
-				orderList = append(orderList, o)
+				ret.OrderList = append(ret.OrderList, o)
 			}
 		}
 	}
 
-	if "" == opt.TableName {
+	if "" == ret.Opt.TableName {
 		err = fmt.Errorf("nil table name")
 		return
 	}
@@ -189,35 +199,35 @@ func (d *DB) Select(dst interface{}, args ...interface{}) error {
 	}
 
 	// parse arguments
-	_, opt, offset, limit, cond_list, order_list, err := d.handleArgs(prototype, args)
+	parsed_args, err := d.handleArgs(prototype, args)
 	if err != nil {
 		return err
 	}
 
 	// pack SELECT statements
 	var offset_str string
-	if offset > 0 {
-		offset_str = fmt.Sprintf("OFFSET %d", offset)
+	if parsed_args.Offset > 0 {
+		offset_str = fmt.Sprintf("OFFSET %d", parsed_args.Offset)
 	}
 
 	var limit_str string
-	if limit > 0 {
-		limit_str = fmt.Sprintf("LIMIT %d", limit)
+	if parsed_args.Limit > 0 {
+		limit_str = fmt.Sprintf("LIMIT %d", parsed_args.Limit)
 	}
 
 	var order_str string
-	if len(order_list) > 0 {
-		order_str = "ORDER BY " + strings.Join(order_list, ", ")
+	if len(parsed_args.OrderList) > 0 {
+		order_str = "ORDER BY " + strings.Join(parsed_args.OrderList, ", ")
 	}
 
 	var cond_str string
-	if len(cond_list) > 0 {
-		cond_str = "WHERE " + strings.Join(cond_list, " AND ")
+	if len(parsed_args.CondList) > 0 {
+		cond_str = "WHERE " + strings.Join(parsed_args.CondList, " AND ")
 	}
 
 	query := fmt.Sprintf(
 		"SELECT %s FROM `%s` %s %s %s %s",
-		fields_str, opt.TableName, cond_str, order_str, limit_str, offset_str,
+		fields_str, parsed_args.Opt.TableName, cond_str, order_str, limit_str, offset_str,
 	)
 	// log.Println(query)
 
@@ -313,21 +323,9 @@ func (d *DB) InsertFields(s interface{}, backQuoted bool) (keys []string, values
 	v := reflect.ValueOf(s)
 
 	// read from buffer
-	intf_name := reflect.TypeOf(s)
-	var field_map map[string]*Field
-	if field_map_value, exist := d.bufferedFieldMaps.Load(intf_name); exist {
-		field_map = field_map_value.(map[string]*Field)
-	} else {
-		field_map = make(map[string]*Field)
-		fields, err := d.ReadStructFields(s)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		for _, f := range fields {
-			field_map[f.Name] = f
-		}
-		d.bufferedFieldMaps.Store(intf_name, field_map)
+	field_map, err := d.getFieldMap(s)
+	if err != nil {
+		return
 	}
 
 	// handle each fields
@@ -350,93 +348,57 @@ func (d *DB) InsertFields(s interface{}, backQuoted bool) (keys []string, values
 			}
 		}
 
-		var v string
+		var val string
 		intf := vf.Interface()
+
+		f, exist := field_map[field_name]
+		if false == exist || f.AutoIncrement {
+			continue
+		}
 
 		switch intf.(type) {
 		case int, int8, int16, int32, int64:
-			f, _ := field_map[field_name]
-			if nil == f || f.AutoIncrement {
-				continue
-			} else {
-				v = strconv.FormatInt(vf.Int(), 10)
-			}
+			val = strconv.FormatInt(vf.Int(), 10)
 		case uint, uint8, uint16, uint32, uint64:
-			f, _ := field_map[field_name]
-			if nil == f || f.AutoIncrement {
-				continue
-			} else {
-				v = strconv.FormatUint(vf.Uint(), 10)
-			}
+			val = strconv.FormatUint(vf.Uint(), 10)
 		case string:
-			v = addQuoteToString(vf.String(), "'")
+			val = addQuoteToString(vf.String(), "'")
 		case bool:
-			if vf.Bool() {
-				v = "TRUE"
-			} else {
-				v = "FALSE"
-			}
+			val = convBoolToString(vf.Bool())
 		case float32, float64:
-			v = fmt.Sprintf("%f", vf.Float())
+			val = fmt.Sprintf("%f", vf.Float())
 		case sql.NullString:
-			ns := intf.(sql.NullString)
-			if ns.Valid {
-				v = addQuoteToString(ns.String, "'")
-			} else {
-				v = "NULL"
-			}
+			val = convNullStringToString(intf.(sql.NullString), "'")
 		case sql.NullInt64:
-			ni := intf.(sql.NullInt64)
-			if ni.Valid {
-				v = strconv.FormatInt(ni.Int64, 10)
-			} else {
-				v = "NULL"
-			}
+			val = convNullInt64ToString(intf.(sql.NullInt64))
 		case sql.NullBool:
-			nb := intf.(sql.NullBool)
-			if nb.Valid {
-				if nb.Bool {
-					v = "TRUE"
-				} else {
-					v = "FALSE"
-				}
-			} else {
-				v = "NULL"
-			}
+			val = convNullBoolToString(intf.(sql.NullBool))
 		case sql.NullFloat64:
-			nf := intf.(sql.NullFloat64)
-			if vf.Field(1).Bool() {
-				v = fmt.Sprintf("%f", nf.Float64)
-			} else {
-				v = "NULL"
-			}
+			val = convNullFloat64ToString(intf.(sql.NullFloat64))
 		case mysql.NullTime:
 			nt := intf.(mysql.NullTime)
 			if nt.Valid {
-				v = convTimeToString(nt.Time, field_map, field_name)
+				val = convTimeToString(nt.Time, field_map, field_name)
 			} else {
-				v = "NULL"
+				val = "NULL"
 			}
 		case time.Time:
-			v = convTimeToString(intf.(time.Time), field_map, field_name)
+			val = convTimeToString(intf.(time.Time), field_map, field_name)
 		default:
 			if reflect.Struct == tf.Type.Kind() {
-				// // log.Println("Embedded struct: ", tf.Type)
+				// log.Println("Embedded struct: ", tf.Type)
 				embed_key, embed_value, err := d.InsertFields(vf.Interface(), false)
 				if err != nil {
 					return nil, nil, err
 				}
 				keys = append(keys, embed_key...)
 				values = append(values, embed_value...)
-				continue
-			} else {
-				// ignore this field
-				continue
 			}
+			continue
 		}
 
 		keys = append(keys, field_name)
-		values = append(values, v)
+		values = append(values, val)
 		// continue
 	}
 
@@ -481,6 +443,48 @@ func (d *DB) Insert(v interface{}, opts ...Options) (result sql.Result, err erro
 	query := fmt.Sprintf("INSERT INTO `%s` (%s) VALUES (%s)", opt.TableName, strings.Join(keys, ", "), strings.Join(values, ", "))
 	// // log.Println(query)
 	return d.db.Exec(query)
+}
+
+func convNullStringToString(s sql.NullString, quote string) string {
+	if false == s.Valid {
+		return "NULL"
+	} else {
+		return addQuoteToString(s.String, quote)
+	}
+}
+
+func convNullInt64ToString(n sql.NullInt64) string {
+	if false == n.Valid {
+		return "NULL"
+	} else {
+		return strconv.FormatInt(n.Int64, 10)
+	}
+}
+
+func convNullBoolToString(b sql.NullBool) string {
+	if false == b.Valid {
+		return "NULL"
+	} else if b.Bool {
+		return "TRUE"
+	} else {
+		return "FALSE"
+	}
+}
+
+func convNullFloat64ToString(f sql.NullFloat64) string {
+	if false == f.Valid {
+		return "NULL"
+	} else {
+		return fmt.Sprintf("%f", f.Float64)
+	}
+}
+
+func convBoolToString(b bool) string {
+	if b {
+		return "TRUE"
+	} else {
+		return "FALSE"
+	}
 }
 
 func addQuoteToString(s, quote string) string {
@@ -549,7 +553,6 @@ func (d *DB) Update(prototype interface{}, fields map[string]interface{}, args .
 	}
 
 	opt := mergeOptions(prototype)
-	var cond_list []string
 	var limit_str string
 	var cond_str string
 
@@ -562,16 +565,16 @@ func (d *DB) Update(prototype interface{}, fields map[string]interface{}, args .
 		return nil, fmt.Errorf("no value specified")
 	}
 
-	_, opt, _, limit, cond_list, _, err := d.handleArgs(prototype, args)
+	parsed_args, err := d.handleArgs(prototype, args)
 	if err != nil {
 		return nil, err
 	}
-	if limit > 0 {
-		limit_str = "LIMIT " + strconv.Itoa(limit)
+	if parsed_args.Limit > 0 {
+		limit_str = "LIMIT " + strconv.Itoa(parsed_args.Limit)
 	}
 
-	if len(cond_list) > 0 {
-		cond_str = "WHERE " + strings.Join(cond_list, " AND ")
+	if len(parsed_args.CondList) > 0 {
+		cond_str = "WHERE " + strings.Join(parsed_args.CondList, " AND ")
 	}
 	query := fmt.Sprintf("UPDATE `%s` SET %s %s %s", opt.TableName, strings.Join(kv, ", "), cond_str, limit_str)
 	// log.Println(query)
@@ -644,30 +647,30 @@ func (d *DB) Delete(prototype interface{}, args ...interface{}) (sql.Result, err
 	// Should be Xxx
 
 	// parse arguments
-	_, opt, _, limit, cond_list, order_list, err := d.handleArgs(prototype, args)
+	parsed_args, err := d.handleArgs(prototype, args)
 	if err != nil {
 		return nil, err
 	}
 
 	// pack DELETE statements
 	var limit_str string
-	if limit > 0 {
-		limit_str = fmt.Sprintf("LIMIT %d", limit)
+	if parsed_args.Limit > 0 {
+		limit_str = fmt.Sprintf("LIMIT %d", parsed_args.Limit)
 	}
 
 	var order_str string
-	if len(order_list) > 0 {
-		order_str = "ORDER BY " + strings.Join(order_list, ", ")
+	if len(parsed_args.OrderList) > 0 {
+		order_str = "ORDER BY " + strings.Join(parsed_args.OrderList, ", ")
 	}
 
 	var cond_str string
-	if len(cond_list) > 0 {
-		cond_str = "WHERE " + strings.Join(cond_list, " AND ")
+	if len(parsed_args.CondList) > 0 {
+		cond_str = "WHERE " + strings.Join(parsed_args.CondList, " AND ")
 	}
 
 	query := fmt.Sprintf(
 		"DELETE FROM `%s` %s %s %s",
-		opt.TableName, cond_str, order_str, limit_str,
+		parsed_args.Opt.TableName, cond_str, order_str, limit_str,
 	)
 	// log.Println(query)
 
@@ -675,7 +678,7 @@ func (d *DB) Delete(prototype interface{}, args ...interface{}) (sql.Result, err
 }
 
 // ========
-func (d *DB) SelectOrInsertOne(insert interface{}, selectResult interface{}, conds ...interface{}) (res sql.Result, err error) {
+func (d *DB) SelectOrInsert(insert interface{}, selectResult interface{}, conds ...interface{}) (res sql.Result, err error) {
 	if nil == d.db {
 		return nil, fmt.Errorf("mysqlx not initialized")
 	}
@@ -693,16 +696,13 @@ func (d *DB) SelectOrInsertOne(insert interface{}, selectResult interface{}, con
 	// Should be Xxx
 
 	// handle select conditions
-	field_map, opt, _, _, cond_list, _, err := d.handleArgs(insert, conds)
+	parsed_args, err := d.handleArgs(insert, conds)
 	if err != nil {
 		// log.Printf("handleArgs() failed: %v", err)
 		return nil, err
 	}
-	if 0 == len(cond_list) {
+	if 0 == len(parsed_args.CondList) {
 		return nil, fmt.Errorf("select conditions not given")
-	}
-	if "" == opt.TableName {
-		return nil, fmt.Errorf("nil table name")
 	}
 
 	// should have increment field
@@ -728,7 +728,7 @@ func (d *DB) SelectOrInsertOne(insert interface{}, selectResult interface{}, con
 
 	first_list = make([]string, len(keys))
 	second_list = make([]string, len(keys))
-	third_list = cond_list
+	third_list = parsed_args.CondList
 
 	for i, k := range keys {
 		v := values[i]
@@ -737,13 +737,13 @@ func (d *DB) SelectOrInsertOne(insert interface{}, selectResult interface{}, con
 	}
 
 	var random_field string
-	for k, _ := range field_map {
+	for k, _ := range parsed_args.FieldMap {
 		random_field = k
 		break
 	}
 	query := fmt.Sprintf(
 		"INSERT INTO `%s` (%s) SELECT * FROM (SELECT %s) AS tmp WHERE NOT EXISTS (SELECT `%s` FROM `%s` WHERE %s) LIMIT 1",
-		opt.TableName, strings.Join(first_list, ", "), strings.Join(second_list, ", "), random_field, opt.TableName, strings.Join(third_list, " AND "),
+		parsed_args.Opt.TableName, strings.Join(first_list, ", "), strings.Join(second_list, ", "), random_field, parsed_args.Opt.TableName, strings.Join(third_list, " AND "),
 	)
 	// log.Println(query)
 
@@ -766,13 +766,18 @@ func (d *DB) SelectOrInsertOne(insert interface{}, selectResult interface{}, con
 	insert_id, err := res.LastInsertId()
 	if err != nil {
 		// inserted, now select
-		query = fmt.Sprintf("SELECT %s FROM `%s` WHERE `%s` = %d", select_fields, opt.TableName, incr_field.Name, insert_id)
+		query = fmt.Sprintf("SELECT %s FROM `%s` WHERE `%s` = %d", select_fields, parsed_args.Opt.TableName, incr_field.Name, insert_id)
 
 	} else {
 		// not inserted, just select as above
-		query = fmt.Sprintf("SELECT %s FROM `%s` WHERE %s", select_fields, opt.TableName, strings.Join(cond_list, " AND "))
+		query = fmt.Sprintf("SELECT %s FROM `%s` WHERE %s", select_fields, parsed_args.Opt.TableName, strings.Join(parsed_args.CondList, " AND "))
 	}
 
 	// log.Println(query)
 	return res, d.db.Select(selectResult, query)
+}
+
+// ========
+func (d *DB) InsertIfNotExists(insert interface{}, conds ...interface{}) (res sql.Result, err error) {
+	return d.SelectOrInsert(insert, nil, conds...)
 }

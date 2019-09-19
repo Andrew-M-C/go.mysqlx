@@ -203,7 +203,7 @@ func TestQuery(t *testing.T) {
 	return
 }
 
-func TestSelectOrInsertOne(t *testing.T) {
+func TestSelectOrInsert(t *testing.T) {
 	var err error
 
 	d, err := Open(Param{
@@ -227,7 +227,7 @@ func TestSelectOrInsertOne(t *testing.T) {
 	var all []User
 
 	// This should be first
-	res, err := d.SelectOrInsertOne(abigai, &all,
+	res, err := d.SelectOrInsert(abigai, &all,
 		Cond{"first_name", "=", "Abigail"},
 		Cond{"family_name", "=", "Disney"},
 	)
@@ -247,7 +247,7 @@ func TestSelectOrInsertOne(t *testing.T) {
 	last_insert_id := all[0].ID
 
 	// second insert
-	res, err = d.SelectOrInsertOne(abigai, &all,
+	res, err = d.SelectOrInsert(abigai, &all,
 		Cond{"first_name", "=", "Abigail"},
 		Cond{"family_name", "=", "Disney"},
 	)
@@ -267,6 +267,23 @@ func TestSelectOrInsertOne(t *testing.T) {
 	if all[0].ID != last_insert_id {
 		t.Errorf("duplicated insert detected: %d <> %d", last_insert_id, all[0].ID)
 		return
+	}
+
+	// simple insert or not exist
+	res, err = d.InsertIfNotExists(
+		abigai,
+		Cond{"first_name", "=", "Abigail"},
+		Cond{"family_name", "=", "Disney"},
+	)
+	if err != nil {
+		t.Errorf("InsertIfNotExists failed")
+	} else {
+		showResult(t, res)
+		insert_id, err := res.LastInsertId()
+		if err == nil && insert_id != 0 {
+			t.Errorf("should NOT inserted, got insert_id: %d", insert_id)
+			return
+		}
 	}
 
 	return
