@@ -322,6 +322,19 @@ func (d *DB) CreateTable(v interface{}, opts ...Options) error {
 	}
 }
 
+var _defaultIntegerTypes = map[string]string{
+	"int":    "int",
+	"uint":   "int unsigned",
+	"int64":  "bigint",
+	"uint64": "bigint unsigned",
+	"int32":  "int",
+	"uint32": "int unsigned",
+	"int16":  "smallint",
+	"uint16": "smallint unsigned",
+	"int8":   "tinyint",
+	"uint8":  "tinyint unsigned",
+}
+
 func readStructFields(t reflect.Type, v reflect.Value) (ret []*Field, err error) {
 	num_field := t.NumField()
 	ret = make([]*Field, 0, num_field)
@@ -348,52 +361,17 @@ func readStructFields(t reflect.Type, v reflect.Value) (ret []*Field, err error)
 		}
 
 		switch vf.Interface().(type) {
-		case int64:
-			field_type = getFieldType(&tf, "bigint")
+		case int, uint, int64, uint64, int32, uint32, int16, uint16, int8, uint8:
+			field_type_name := reflect.TypeOf(vf.Interface()).String()
+			field_type = getFieldType(&tf, _defaultIntegerTypes[field_type_name])
 			field_null = getFieldNullable(&tf, false)
 			field_dflt = getFieldDefault(&tf, Integer, field_null)
 			field_incr = getFieldAutoIncrement(&tf, false)
 			field_comt = getFieldComment(&tf)
-		case uint64:
-			field_type = getFieldType(&tf, "bigint unsigned")
+		case bool:
+			field_type = getFieldType(&tf, "boolean")
 			field_null = getFieldNullable(&tf, false)
-			field_dflt = getFieldDefault(&tf, Integer, field_null)
-			field_incr = getFieldAutoIncrement(&tf, false)
-			field_comt = getFieldComment(&tf)
-		case int, int32:
-			field_type = getFieldType(&tf, "int")
-			field_null = getFieldNullable(&tf, false)
-			field_dflt = getFieldDefault(&tf, Integer, field_null)
-			field_incr = getFieldAutoIncrement(&tf, false)
-			field_comt = getFieldComment(&tf)
-		case uint, uint32:
-			field_type = getFieldType(&tf, "int unsigned")
-			field_null = getFieldNullable(&tf, false)
-			field_dflt = getFieldDefault(&tf, Integer, field_null)
-			field_incr = getFieldAutoIncrement(&tf, false)
-			field_comt = getFieldComment(&tf)
-		case int16:
-			field_type = getFieldType(&tf, "smallint")
-			field_null = getFieldNullable(&tf, false)
-			field_dflt = getFieldDefault(&tf, Integer, field_null)
-			field_incr = getFieldAutoIncrement(&tf, false)
-			field_comt = getFieldComment(&tf)
-		case uint16:
-			field_type = getFieldType(&tf, "smallint unsigned")
-			field_null = getFieldNullable(&tf, false)
-			field_dflt = getFieldDefault(&tf, Integer, field_null)
-			field_incr = getFieldAutoIncrement(&tf, false)
-			field_comt = getFieldComment(&tf)
-		case int8:
-			field_type = getFieldType(&tf, "tinyint")
-			field_null = getFieldNullable(&tf, false)
-			field_dflt = getFieldDefault(&tf, Integer, field_null)
-			field_incr = getFieldAutoIncrement(&tf, false)
-			field_comt = getFieldComment(&tf)
-		case uint8:
-			field_type = getFieldType(&tf, "tinyint unsigned")
-			field_null = getFieldNullable(&tf, false)
-			field_dflt = getFieldDefault(&tf, Integer, field_null)
+			field_dflt = getFieldDefault(&tf, Bool, field_null)
 			field_incr = getFieldAutoIncrement(&tf, false)
 			field_comt = getFieldComment(&tf)
 		case string:
@@ -405,12 +383,6 @@ func readStructFields(t reflect.Type, v reflect.Value) (ret []*Field, err error)
 			if "" == field_type {
 				return nil, fmt.Errorf("missing type tag for string field '%s'", field_name)
 			}
-		case bool:
-			field_type = getFieldType(&tf, "boolean")
-			field_null = getFieldNullable(&tf, false)
-			field_dflt = getFieldDefault(&tf, Bool, field_null)
-			field_incr = false
-			field_comt = getFieldComment(&tf)
 		case float32, float64:
 			field_type = getFieldType(&tf, "")
 			field_null = getFieldNullable(&tf, false)
@@ -470,11 +442,8 @@ func readStructFields(t reflect.Type, v reflect.Value) (ret []*Field, err error)
 					return nil, err
 				}
 				ret = append(ret, sub_fields...)
-				continue
-			} else {
-				// log.Printf("unrecognized type %v\n", tf.Type.Kind())
-				continue
 			}
+			continue
 		}
 
 		// done
