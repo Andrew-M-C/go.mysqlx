@@ -737,7 +737,7 @@ func (d *DB) SelectOrInsert(insert interface{}, selectResult interface{}, conds 
 	}
 
 	var random_field string
-	for k, _ := range parsed_args.FieldMap {
+	for k := range parsed_args.FieldMap {
 		random_field = k
 		break
 	}

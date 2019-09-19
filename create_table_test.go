@@ -33,16 +33,16 @@ func (FirstTable) Options() Options {
 	return Options{
 		TableName:      "t_test",
 		TableDescption: "test table for CreateTable",
-		Indexes: []Index{Index{
+		Indexes: []Index{{
 			Name:   "index_uint2_desu",
 			Fields: []string{"uint2"},
-		}, Index{
+		}, {
 			// Name:   "index_uint",
 			Fields: []string{"uint", "uint2"},
 		}},
-		Uniques: []Unique{Unique{
+		Uniques: []Unique{{
 			Fields: []string{"uint2"},
-		}, Unique{
+		}, {
 			Fields: []string{"uint", "uint2"},
 		}},
 	}
@@ -57,7 +57,7 @@ flush privileges;
 func testCreateTable(t *testing.T, d *DB) {
 	d.MustCreateTable(FirstTable{})
 	d.MustCreateTable(SecondTable{}, Options{
-		Indexes: []Index{Index{
+		Indexes: []Index{{
 			Fields: []string{"varchar"},
 		}},
 	})
@@ -65,7 +65,7 @@ func testCreateTable(t *testing.T, d *DB) {
 	d.MustCreateTable(SecondTable{}, Options{
 		TableName:      "t_testB",
 		TableDescption: "another table for t_test",
-		Uniques: []Unique{Unique{
+		Uniques: []Unique{{
 			Fields: []string{"uint", "uint2"},
 		}},
 	})
@@ -118,7 +118,7 @@ func testCreateTableMiscError(t *testing.T, d *DB) {
 	err = d.CreateTable(SimpleStruct{}, Options{
 		TableName: "t_simple",
 		Indexes: []Index{
-			Index{},
+			{},
 		},
 	})
 	check_expected_error("missing index content")
@@ -127,7 +127,7 @@ func testCreateTableMiscError(t *testing.T, d *DB) {
 	err = d.CreateTable(SimpleStruct{}, Options{
 		TableName: "t_simple",
 		Uniques: []Unique{
-			Unique{},
+			{},
 		},
 	})
 	check_expected_error("missing unique content")

@@ -33,11 +33,11 @@ func (User) Options() Options {
 		TableName:      "t_user",
 		TableDescption: "general user information",
 		Indexes: []Index{
-			Index{
+			{
 				Name:   "index_fullname",
 				Fields: []string{"full_name"},
 			},
-			Index{
+			{
 				Name:   "index_lastname",
 				Fields: []string{"family_name", "first_name"},
 			},
@@ -125,7 +125,7 @@ func TestQuery(t *testing.T) {
 	t.Logf("Vals: %v", values)
 
 	// insert struct
-	for _ = range make([]int, 3) {
+	for range make([]int, 3) {
 		res, err := db.Insert(new_user)
 		if err != nil {
 			return
