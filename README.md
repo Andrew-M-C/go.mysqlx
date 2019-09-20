@@ -1,12 +1,11 @@
 # mysqlx
 
-[![Build status](https://travis-ci.org/Andrew-M-C/go.mysqlx.svg?branch=master)](https://travis-ci.org/Andrew-M-C/go.mysqlx)  [![Status](https://img.shields.io/badge/status-develop-yellow.svg)](https://github.com/Andrew-M-C/go.mysqlx)  [![License](https://img.shields.io/badge/license-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
+[![Build status](https://travis-ci.org/Andrew-M-C/go.mysqlx.svg?branch=master)](https://travis-ci.org/Andrew-M-C/go.mysqlx)  [![report](https://goreportcard.com/badge/github.com/Andrew-M-C/go.mysqlx)](https://goreportcard.com/report/github.com/Andrew-M-C/go.mysqlx)  [![Status](https://img.shields.io/badge/status-develop-yellow.svg)](https://github.com/Andrew-M-C/go.mysqlx)  [![License](https://img.shields.io/badge/license-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
 <details>
 <summary>More Badages</summary>
 <a href="https://coveralls.io/github/Andrew-M-C/go.mysqlx?branch=master&kill_cache=1"><img src="https://coveralls.io/repos/github/Andrew-M-C/go.mysqlx/badge.svg?branch=master"></a>
 <a href="https://codebeat.co/projects/github-com-andrew-m-c-go-mysqlx-master"><img src="https://codebeat.co/badges/16fb0b95-56f3-42bf-91dc-ddcef8739b13"></a>
-<a href="https://goreportcard.com/report/github.com/Andrew-M-C/go.mysqlx"><img src="https://goreportcard.com/badge/github.com/Andrew-M-C/go.mysqlx"></a>
 </details>
 
 ## Supported Go version
