@@ -6,6 +6,48 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
+func TestOpenSpecialSymbolAt(t *testing.T) {
+	d, err := Open(Param{
+		User:   "at@",
+		DBName: "db_test",
+		Pass:   "travis@12345",
+	})
+	if err != nil {
+		t.Errorf("Open failed: %v", err)
+		return
+	}
+
+	d.KeepAlive()
+	defer d.StopKeepAlive()
+
+	testCreateTable(t, d)
+	testCreateNoAutoIncrement(t, d)
+	testCreateTableMiscError(t, d)
+
+	return
+}
+
+func TestOpenSpecialSymbolQuote(t *testing.T) {
+	d, err := Open(Param{
+		User:   "quote'",
+		DBName: "db_test",
+		Pass:   "travis'12345",
+	})
+	if err != nil {
+		t.Errorf("Open failed: %v", err)
+		return
+	}
+
+	d.KeepAlive()
+	defer d.StopKeepAlive()
+
+	testCreateTable(t, d)
+	testCreateNoAutoIncrement(t, d)
+	testCreateTableMiscError(t, d)
+
+	return
+}
+
 func TestOpen(t *testing.T) {
 	// successfully open
 	d, err := Open(Param{

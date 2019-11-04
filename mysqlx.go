@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"strings"
 	"sync/atomic"
 	"time"
 
@@ -59,10 +58,10 @@ func Open(param Param) (ret *DB, err error) {
 		return nil, fmt.Errorf("DBName required")
 	}
 
-	param.User = strings.Replace(param.User, "@", "\\@", -1)
-	param.Pass = strings.Replace(param.Pass, "@", "\\@", -1)
-	param.User = strings.Replace(param.User, "'", "\\'", -1)
-	param.Pass = strings.Replace(param.Pass, "'", "\\'", -1)
+	// param.User = strings.Replace(param.User, "@", "\\@", -1)
+	// param.Pass = strings.Replace(param.Pass, "@", "\\@", -1)
+	// param.User = strings.Replace(param.User, "'", "\\'", -1)
+	// param.Pass = strings.Replace(param.Pass, "'", "\\'", -1)
 
 	ret = &DB{
 		param: param,
@@ -71,12 +70,12 @@ func Open(param Param) (ret *DB, err error) {
 	var uri string
 	if "" == param.Pass {
 		uri = fmt.Sprintf(
-			"%s@tcp(%s:%d)/%s?charset=utf8&parseTime=true",
+			"'%s'@tcp(%s:%d)/%s?charset=utf8&parseTime=true",
 			param.User, param.Host, param.Port, param.DBName,
 		)
 	} else {
 		uri = fmt.Sprintf(
-			"%s:%s@tcp(%s:%d)/%s?charset=utf8&parseTime=true",
+			"'%s':%s@tcp(%s:%d)/%s?charset=utf8&parseTime=true",
 			param.User, param.Pass, param.Host, param.Port, param.DBName,
 		)
 	}

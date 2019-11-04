@@ -11,6 +11,8 @@ services:
 before_install:
   - mysql -e "CREATE DATABASE db_test;"
   - mysql -e "grant all privileges on db_test.* to travis@localhost;"
+  - mysql -e "grant all privileges on db_test.* to 'at@'@localhost IDENTIFIED BY 'travis@12345';"
+  - mysql -e "grant all privileges on db_test.* to 'quote\''@localhost IDENTIFIED BY 'travis\'12345';"
   - mysql -e "flush privileges;"
 
 install:
