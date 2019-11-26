@@ -115,7 +115,7 @@ type _Index struct {
 	IndexType    string         `db:"Index_type"`
 	Comment      string         `db:"Comment"`
 	IndexComment string         `db:"Index_comment"`
-	Visible      bool           `db:"Visible"`
+	Visible      sql.NullBool   `db:"Visible"`
 }
 
 const _ReadTableIndexes = "show index from `%s`"
