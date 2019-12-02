@@ -2,10 +2,11 @@ package mysqlx
 
 import (
 	"fmt"
+	"sync"
 	"strings"
 
+	"github.com/Andrew-M-C/go.atomicbool"
 	"github.com/jmoiron/sqlx"
-	"golang.org/x/sync/syncmap"
 )
 
 // Param identifies connect parameters to a database
@@ -27,10 +28,14 @@ type DB struct {
 	isKeepingAlive  int32
 
 	// interface field buffers
-	bufferedFields       syncmap.Map // []*Field
-	bufferedFieldMaps    syncmap.Map // map[string]*Field
-	bufferedSelectFields syncmap.Map // []string
-	bufferedIncrField    syncmap.Map // *Field
+	bufferedFields       sync.Map // []*Field
+	bufferedFieldMaps    sync.Map // map[string]*Field
+	bufferedSelectFields sync.Map // []string
+	bufferedIncrField    sync.Map // *Field
+
+	// stores created tables
+	autoCreateTable atomicbool.B
+	createdTables   sync.Map // bool
 }
 
 // Index shows the information of an index setting

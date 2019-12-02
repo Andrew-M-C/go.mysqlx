@@ -43,6 +43,31 @@ func (d *DB) MustCreateTable(v interface{}, opts ...Options) {
 	return
 }
 
+// AutoCreateTable enables auto table creation. DB will check if table is created previously before
+// each access to the DB.
+//
+// Please do NOT invoke this unless you need to automatically create table in runtime.
+//
+// Note 1: if a table was created once by mysqlx.DB after it was initialized, it will be noted as "created"
+// and cached. Then mysqlx.DB will not check into MySQL DB again.
+//
+// Note 2: auto-table-creation will NOT be activated in Select() function!
+func (d *DB) AutoCreateTable() {
+	d.autoCreateTable.Store(true)
+}
+
+func (d *DB) checkAutoCreateTable(v interface{}, opt Options) error {
+	if false == d.autoCreateTable.Load() {
+		return nil
+	}
+
+	if _, exist := d.createdTables.Load(opt.TableName); exist {
+		return nil
+	}
+
+	return d.CreateTable(v, opt)
+}
+
 func mergeOptions(v interface{}, opts ...Options) Options {
 	opt := Options{}
 	if intf, ok := v.(optionInterface); ok {
@@ -321,6 +346,11 @@ func (d *DB) CreateTable(v interface{}, opts ...Options) error {
 	}
 	// check and alter indexes and uniques
 	err = d.mysqlAlterTableIndexUniques(&opt)
+	if err != nil {
+		return err
+	}
+
+	d.createdTables.Store(opt.TableName, true)
 	return err
 }
 

@@ -5,8 +5,8 @@ go:
   - 1.12
   - 1.13
 
-# services:
-#   - mysql
+services:
+  - mysql
 
 before_install:
   - mysql -e "CREATE DATABASE db_test;"
@@ -31,7 +31,7 @@ env:
   global:
     - secure: "rGNG21zOaU+UxQ4a9rKOk6++zYdVh9pcADU1d/EuGYh3nOkiXHUHKEtV+JXjNWisrhkA9npGFwbtemKHViGGEifJE9DhaG9e7aqhyfeHCfmSrbwdCuuVnD5PRTM5dLw6ZcwzwAmydP9nI0F21qsHN4JSZisCnsAg1AJvuhZQ8ddozNh9dQBwOrWBT2AzeSdo8/9SWHWBcdt/ialXm2/Ll3P5P5PRUKaRj6BHw9bJE0hMzMT9VjC3kna/j2r0B6u1c2Xe23Vf0HDeK0aIdYeQWusie7zgRmgGBJfN1UyPdSrZG5RzFTrZXJ4KdS52EBmZAxCaWpsamEkzYY7ZwoRssbHYY872nq1Vo/1fkAGJ66y9Iz+tYbVHwRRDesWcA4Dg1T8Rg+jUboeGGMc3J9N3qoPlbxbp8AnudsKGa4RLgzzUhbg5GIRhTPtkCFb//1dAHBUTv5RnN7iAM67RtodixbcfvZSKwz1PKzeHPfjrcg8PmaNm+eLSCo339mGBYUAperxfynz1fdwSv6A8rN9zTjKKYi9gsa7GRSC2ycSf7SoviBpyaM9F/o6jhDg+R8IZpiqEGHyi5NwnGeKsKC+qXlpmbcQqm5VjRzuJpR1K8NGOY9KJPtLawVMRTdAhxK/H7rMFeUPssesOunHmGu5HH3WkQjWvZRV5LmLjngbTBV4="
     - GO111MODULE=on
-  jobs:
-    - DB=mysql:5.6
-    - DB=mysql:5.7
-    - DB=mariadb:"10.0"
+  # jobs:
+  #   - DB=mysql:5.6
+  #   - DB=mysql:5.7
+  #   - DB=mariadb:"10.0"

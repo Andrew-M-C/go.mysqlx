@@ -49,6 +49,13 @@ func (d *DB) Delete(prototype interface{}, args ...interface{}) (sql.Result, err
 		condStr = "WHERE " + strings.Join(parsedArgs.CondList, " AND ")
 	}
 
+	// check auto create table
+	err = d.checkAutoCreateTable(prototype, parsedArgs.Opt)
+	if err != nil {
+		return nil, err
+	}
+
+	// DELETE
 	query := fmt.Sprintf(
 		"DELETE FROM `%s` %s %s %s",
 		parsedArgs.Opt.TableName, condStr, orderStr, limitStr,

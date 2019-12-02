@@ -61,6 +61,12 @@ func (d *DB) Update(prototype interface{}, fields map[string]interface{}, args .
 	query := fmt.Sprintf("UPDATE `%s` SET %s %s %s", opt.TableName, strings.Join(kv, ", "), condStr, limitStr)
 	// log.Println(query)
 
+	err = d.checkAutoCreateTable(prototype, parsedArgs.Opt)
+	if err != nil {
+		return nil, err
+	}
+
+	// UPDATE
 	return d.db.Exec(query)
 }
 

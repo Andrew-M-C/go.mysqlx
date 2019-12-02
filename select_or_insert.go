@@ -79,6 +79,12 @@ func (d *DB) SelectOrInsert(insert interface{}, selectResult interface{}, conds 
 	)
 	// log.Println(query)
 
+	// check table
+	err = d.checkAutoCreateTable(insert, parsedArgs.Opt)
+	if err != nil {
+		return nil, err
+	}
+
 	// exec first
 	res, err = d.db.Exec(query)
 	if err != nil {
