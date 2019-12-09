@@ -1,6 +1,9 @@
 # mysqlx
 
-[![Build status](https://travis-ci.org/Andrew-M-C/go.mysqlx.svg?branch=master)](https://travis-ci.org/Andrew-M-C/go.mysqlx)  [![report](https://goreportcard.com/badge/github.com/Andrew-M-C/go.mysqlx)](https://goreportcard.com/report/github.com/Andrew-M-C/go.mysqlx)  [![Status](https://img.shields.io/badge/status-beta-yellow.svg)](https://github.com/Andrew-M-C/go.mysqlx)  [![License](https://img.shields.io/badge/license-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
+[![Build status](https://travis-ci.org/Andrew-M-C/go.mysqlx.svg?branch=master)](https://travis-ci.org/Andrew-M-C/go.mysqlx)
+[![report](https://goreportcard.com/badge/github.com/Andrew-M-C/go.mysqlx)](https://goreportcard.com/report/github.com/Andrew-M-C/go.mysqlx)
+[![Latest](https://img.shields.io/badge/latest-v0.1.0-orange.svg)](https://github.com/Andrew-M-C/go.mysqlx/tree/v0.1.0)
+[![License](https://img.shields.io/badge/license-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
 <details>
 <summary>More Badages</summary>
