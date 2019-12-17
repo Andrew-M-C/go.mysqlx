@@ -97,7 +97,7 @@ func mergeOptions(v interface{}, opts ...Options) Options {
 	return opt
 }
 
-func (d *DB) mysqlCreateTable(fields []*Field, opt *Options) error {
+func (d *DB) mysqlCreateTableStatement(fields []*Field, opt *Options) (string, error) {
 	// create table
 	var autoIncField *Field
 	statements := make([]string, 0, len(fields)+len(opt.Indexes)+len(opt.Uniques)+1)
@@ -128,7 +128,7 @@ func (d *DB) mysqlCreateTable(fields []*Field, opt *Options) error {
 	}
 	for _, idx := range opt.Indexes {
 		if err := idx.Check(); err != nil {
-			return err
+			return "", err
 		}
 
 		idxFieldList := make([]string, 0, len(idx.Fields))
@@ -143,7 +143,7 @@ func (d *DB) mysqlCreateTable(fields []*Field, opt *Options) error {
 	// make unique statements
 	for _, uniq := range opt.Uniques {
 		if err := uniq.Check(); err != nil {
-			return err
+			return "", err
 		}
 
 		uniqFieldList := make([]string, 0, len(uniq.Fields))
@@ -170,17 +170,13 @@ func (d *DB) mysqlCreateTable(fields []*Field, opt *Options) error {
 		autoIncOne, desc,
 	)
 
-	// exec
+	// done
 	// log.Println(final)
-	_, err := d.db.Exec(final)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return final, nil
 }
 
-func (d *DB) mysqlAlterTableFields(fields []*Field, fieldsInDB []*Field, opt *Options) error {
+func (d *DB) mysqlAlterTableFieldsStatements(fields []*Field, fieldsInDB []*Field, opt *Options) (ret []string, err error) {
+	ret = []string{}
 	prevFieldMap := make(map[string]*Field) // used for AFTER section in ALTER statements
 	var prevField *Field
 	for _, f := range fields {
@@ -197,7 +193,7 @@ func (d *DB) mysqlAlterTableFields(fields []*Field, fieldsInDB []*Field, opt *Op
 		}
 		// new primary key is not allowed
 		if f.AutoIncrement {
-			return fmt.Errorf("new promary key `%s` (auto increment) is not allowed", f.Name)
+			return nil, fmt.Errorf("new promary key `%s` (auto increment) is not allowed", f.Name)
 		}
 
 		// not exist? should ALTER
@@ -229,35 +225,32 @@ func (d *DB) mysqlAlterTableFields(fields []*Field, fieldsInDB []*Field, opt *Op
 			}
 
 			// log.Println(statement)
-			_, err := d.db.Exec(statement)
-			if err != nil {
-				return err
-			}
-
+			ret = append(ret, statement)
 			fieldsInDBMap[f.Name] = f
 			return nil
 		}
 
-		err := funcInsertField(f)
+		err = funcInsertField(f)
 		if err != nil {
-			return err
+			return
 		}
 	}
 
-	return nil
+	return ret, nil
 }
 
-func (d *DB) mysqlAlterTableIndexUniques(opt *Options) error {
+func (d *DB) mysqlAlterTableIndexUniquesStatements(opt *Options) (ret []string, err error) {
+	ret = []string{}
 	// read index and uniques
 	indexInDB, uniqInDB, err := d.ReadTableIndexes(opt.TableName)
 	if err != nil {
-		return err
+		return
 	}
 
 	// add indexes
 	for _, idx := range opt.Indexes {
-		if err := idx.Check(); err != nil {
-			return err
+		if err = idx.Check(); err != nil {
+			return
 		}
 
 		if _, exist := indexInDB[idx.Name]; exist {
@@ -269,17 +262,13 @@ func (d *DB) mysqlAlterTableIndexUniques(opt *Options) error {
 			idxFieldList = append(idxFieldList, "`"+f+"`")
 		}
 		s := fmt.Sprintf("ALTER TABLE `%s` ADD INDEX `%s` (%s)", opt.TableName, idx.Name, strings.Join(idxFieldList, ", "))
-
-		_, err := d.db.Exec(s)
-		if err != nil {
-			return err
-		}
+		ret = append(ret, s)
 	}
 
 	// add uniques
 	for _, uniq := range opt.Uniques {
-		if err := uniq.Check(); err != nil {
-			return err
+		if err = uniq.Check(); err != nil {
+			return
 		}
 
 		if _, exist := uniqInDB[uniq.Name]; exist {
@@ -291,35 +280,51 @@ func (d *DB) mysqlAlterTableIndexUniques(opt *Options) error {
 			uniqFieldList = append(uniqFieldList, "`"+f+"`")
 		}
 		s := fmt.Sprintf("ALTER TABLE `%s` ADD UNIQUE `%s` (%s)", opt.TableName, uniq.Name, strings.Join(uniqFieldList, ", "))
-
-		_, err := d.db.Exec(s)
-		if err != nil {
-			return err
-		}
+		ret = append(ret, s)
 	}
 
-	return nil
+	return ret, nil
 }
 
-// CreateTable creates a table if not exist. If the table exists, it will alter it if necessary
-func (d *DB) CreateTable(v interface{}, opts ...Options) error {
+// CreateOrAlterTableStatements returns 'CREATE TABLE ... IF NOT EXISTS ...' or 'ALTER TABLE ...' statements, but will not execute them.
+// If the table does not exists, 'CREATE TABLE ...' statement will be returned. If the table exists and needs no alteration, an empty
+// string slice would be returned. Otherwise, a string slice with 'ALTER TABLE ...' statements would be returned.
+//
+// The returned exists identifies if the table exists in database.
+func (d *DB) CreateOrAlterTableStatements(v interface{}, opts ...Options) (exists bool, statements []string, err error) {
+	exists, create, alter, _, err := d.createAndAlterTableStatements(v, opts...)
+	if err != nil {
+		return
+	}
+	if "" != create {
+		statements = []string{create}
+	} else {
+		statements = alter
+	}
+	return
+}
+
+func (d *DB) createAndAlterTableStatements(v interface{}, opts ...Options) (exists bool, create string, alter []string, opt Options, err error) {
 	if nil == d.db {
-		return fmt.Errorf("mysqlx not initialized")
+		err = fmt.Errorf("mysqlx not initialized")
+		return
 	}
 
 	// read options
-	opt := mergeOptions(v, opts...)
+	alter = []string{}
+	opt = mergeOptions(v, opts...)
 	// log.Println("final opts: ", opt)
 
 	// check options
 	if "" == opt.TableName {
-		return fmt.Errorf("table name not specified")
+		err = fmt.Errorf("table name not specified")
+		return
 	}
 
 	// read fields
 	fields, err := ReadStructFields(v)
 	if err != nil {
-		return err
+		return
 	}
 
 	// read fields and check if table exists
@@ -327,7 +332,7 @@ func (d *DB) CreateTable(v interface{}, opts ...Options) error {
 	fieldsInDB, err := d.ReadTableFields(opt.TableName)
 	if err != nil {
 		if false == strings.Contains(err.Error(), "doesn't exist") {
-			return err
+			return
 		}
 
 		shouldCreate = true
@@ -336,22 +341,54 @@ func (d *DB) CreateTable(v interface{}, opts ...Options) error {
 
 	// create or alter fields
 	if shouldCreate || nil == fieldsInDB {
-		return d.mysqlCreateTable(fields, &opt)
+		create, err = d.mysqlCreateTableStatement(fields, &opt)
+		return
 	}
+	exists = true
 
 	// check and alter fields
-	err = d.mysqlAlterTableFields(fields, fieldsInDB, &opt)
+	alterFieldStatements, err := d.mysqlAlterTableFieldsStatements(fields, fieldsInDB, &opt)
+	if err != nil {
+		return
+	}
+	// check and alter indexes and uniques
+	alterIndexStatements, err := d.mysqlAlterTableIndexUniquesStatements(&opt)
+	if err != nil {
+		return
+	}
+
+	alter = append(alterFieldStatements, alterIndexStatements...)
+	return
+}
+
+// CreateTable creates a table if not exist. If the table exists, it will alter it if necessary
+func (d *DB) CreateTable(v interface{}, opts ...Options) error {
+	exists, create, alter, opt, err := d.createAndAlterTableStatements(v, opts...)
 	if err != nil {
 		return err
 	}
-	// check and alter indexes and uniques
-	err = d.mysqlAlterTableIndexUniques(&opt)
-	if err != nil {
-		return err
+
+	// if table not exists
+	if false == exists {
+		_, err = d.db.Exec(create)
+		if err != nil {
+			return err
+		}
+
+		d.createdTables.Store(opt.TableName, true)
+		return nil
+	}
+
+	// alter
+	for _, query := range alter {
+		_, err = d.db.Exec(query)
+		if err != nil {
+			return err
+		}
 	}
 
 	d.createdTables.Store(opt.TableName, true)
-	return err
+	return nil
 }
 
 var _defaultIntegerTypes = map[string]string{

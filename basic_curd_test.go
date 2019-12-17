@@ -57,6 +57,7 @@ func TestSelectOrInsert(t *testing.T) {
 		return
 	}
 
+	d.Sqlx().Exec("DROP TABLE `t_user`")
 	d.AutoCreateTable()
 
 	abigai := User{

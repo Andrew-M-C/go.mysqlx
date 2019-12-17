@@ -55,12 +55,35 @@ grant all privileges on db_test.* to 'travis'@'localhost';
 flush privileges;
 */
 func testCreateTable(t *testing.T, d *DB) {
+	d.Sqlx().Exec("DROP TABLE `t_test`")
+	d.Sqlx().Exec("DROP TABLE `t_testB`")
+
+	exists, statements, err := d.CreateOrAlterTableStatements(FirstTable{})
+	if err != nil {
+		t.Errorf("CreateAndAlterTableStatements error: %v", err)
+		return
+	}
+	t.Logf("For FirstTable{}")
+	t.Logf("exists: %v", exists)
+	t.Logf("statements: %v", statements)
+
 	d.MustCreateTable(FirstTable{})
-	d.MustCreateTable(SecondTable{}, Options{
+
+	secondOpt := Options{
 		Indexes: []Index{{
 			Fields: []string{"varchar"},
 		}},
-	})
+	}
+	exists, statements, err = d.CreateOrAlterTableStatements(SecondTable{}, secondOpt)
+	if err != nil {
+		t.Errorf("CreateAndAlterTableStatements error: %v", err)
+		return
+	}
+	t.Logf("For SecondTable{}")
+	t.Logf("exists: %v", exists)
+	t.Logf("statements: %v", statements)
+
+	d.MustCreateTable(SecondTable{}, secondOpt)
 
 	d.MustCreateTable(SecondTable{}, Options{
 		TableName:      "t_testB",
@@ -69,7 +92,7 @@ func testCreateTable(t *testing.T, d *DB) {
 			Fields: []string{"uint", "uint2"},
 		}},
 	})
-	err := d.CreateTable(struct{}{})
+	err = d.CreateTable(struct{}{})
 	if err == nil {
 		t.Errorf("expected error not raised")
 		return
@@ -91,6 +114,7 @@ func TestPanic(t *testing.T) {
 }
 
 func testCreateNoAutoIncrement(t *testing.T, d *DB) {
+	d.Sqlx().Exec("DROP TABLE `t_no_inc`")
 	d.MustCreateTable(
 		struct {
 			Count int64 `db:"count"`
