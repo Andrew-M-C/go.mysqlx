@@ -28,14 +28,14 @@ func (Student) TableName() string {
 	return "t_student"
 }
 
-// go test -bench=. -run=none -benchmem
+// go test -bench=. -run=none -benchmem -benchtime=10s
 
 var lcDataInserted atomicbool.B
 
 const cDataLines = 1000
 
 func BenchmarkSelectMysqlx(b *testing.B) {
-	// 首先建表，并且插入数据。这里不测试建表耗时
+	// create table firstly.
 	d, err := Open(Param{
 		User:   "travis",
 		DBName: "db_test",
@@ -45,7 +45,7 @@ func BenchmarkSelectMysqlx(b *testing.B) {
 		return
 	}
 
-	// 建表、建数据
+	// insert data for testing
 	if lcDataInserted.CompareAndSwap(false, true) {
 		d.Sqlx().Exec("DROP TABLE `t_student`")
 		d.MustCreateTable(Student{})
@@ -60,7 +60,7 @@ func BenchmarkSelectMysqlx(b *testing.B) {
 		}
 	}
 
-	// 开始测试
+	// start testing
 	var res []*Student
 	b.ResetTimer()
 
@@ -72,19 +72,56 @@ func BenchmarkSelectMysqlx(b *testing.B) {
 	return
 }
 
-func BenchmarkSelectGorm(b *testing.B) {
+func BenchmarkSelectSqlx(b *testing.B) {
+	d, err := Open(Param{
+		User:   "travis",
+		DBName: "db_test",
+	})
+	if err != nil {
+		b.Errorf("Open failed: %v", err)
+		return
+	}
+
+	var res []*Student
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		id := rand.Int31n(cDataLines)
+		idStr := strconv.Itoa(int(id))
+		d.Sqlx().Select(&res, "SELECT * FROM t_student WHERE id = "+idStr)
+	}
+
+	return
+}
+
+func BenchmarkSelectGormWhere(b *testing.B) {
 	d, err := gorm.Open("mysql", "travis@/db_test?charset=utf8&parseTime=True&loc=Local")
 	if err != nil {
 		b.Errorf("open gorm erro: %v", err)
 	}
 	defer d.Close()
 
-	// 开始测试
 	var res []*Student
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
 		id := rand.Int31n(cDataLines)
 		d.Where("id = ?", id+1).Find(&res)
+	}
+}
+
+func BenchmarkSelectGormFirst(b *testing.B) {
+	d, err := gorm.Open("mysql", "travis@/db_test?charset=utf8&parseTime=True&loc=Local")
+	if err != nil {
+		b.Errorf("open gorm erro: %v", err)
+	}
+	defer d.Close()
+
+	var res Student
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		id := rand.Int31n(cDataLines)
+		d.First(&res, id)
 	}
 }

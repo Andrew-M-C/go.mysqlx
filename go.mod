@@ -1,6 +1,6 @@
 module github.com/Andrew-M-C/go.mysqlx
 
-go 1.11
+go 1.12
 
 require (
 	github.com/Andrew-M-C/go.atomicbool v0.0.0-20191129095941-e8be8f015766
