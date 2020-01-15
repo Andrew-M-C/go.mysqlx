@@ -100,26 +100,44 @@ func (d *DB) ReadTableFields(table string) (ret []*Field, err error) {
 	return
 }
 
-// ========
-type _Index struct {
-	Table        string         `db:"Table"`
-	NonUnique    int            `db:"Non_unique"`
-	KeyName      string         `db:"Key_name"`
-	SeqInIndex   int            `db:"Seq_in_index"`
-	ColumnName   string         `db:"Column_name"`
-	Collation    string         `db:"Collation"`
-	Cardinality  string         `db:"Cardinality"`
-	SubPart      sql.NullInt64  `db:"Sub_part"`
-	Packed       sql.NullString `db:"Packed"`
-	Null         sql.NullString `db:"Null"`
-	IndexType    string         `db:"Index_type"`
-	Comment      string         `db:"Comment"`
-	IndexComment string         `db:"Index_comment"`
-	Visible      string         `db:"Visible"`
-	Expression   sql.NullString `db:"Expression"`
+type currDB struct {
+	Database string `db:"database()"`
 }
 
-const _ReadTableIndexes = "show index from `%s`"
+// CurrentDatabase gets current operating database
+func (d *DB) CurrentDatabase() (string, error) {
+	var res []currDB
+	err := d.db.Select(&res, "select database()")
+	if err != nil {
+		return "", err
+	}
+	if nil == res || 0 == len(res) {
+		return "", fmt.Errorf("current database unknown")
+	}
+	return res[0].Database, nil
+}
+
+// ========
+type _Index struct {
+	Table      string `db:"TABLE_NAME"`
+	NonUnique  int    `db:"NON_UNIQUE"`
+	KeyName    string `db:"INDEX_NAME"`
+	SeqInIndex int    `db:"SEQ_IN_INDEX"`
+	ColumnName string `db:"COLUMN_NAME"`
+	// Collation    string         `db:"Collation"`
+	// Cardinality  string         `db:"Cardinality"`
+	// SubPart      sql.NullInt64  `db:"Sub_part"`
+	// Packed       sql.NullString `db:"Packed"`
+	Null sql.NullString `db:"NULLABLE"`
+	// IndexType    string         `db:"Index_type"`
+	// Comment      string         `db:"Comment"`
+	// IndexComment string         `db:"Index_comment"`
+	// Visible      string         `db:"Visible"`
+	// Expression   sql.NullString `db:"Expression"`
+}
+
+// const _ReadTableIndexes = "show index from `%s`"
+const _ReadTableIndexes = "select `TABLE_NAME`, `NON_UNIQUE`, `INDEX_NAME`, `SEQ_IN_INDEX`, `COLUMN_NAME`, `NULLABLE` FROM information_schema.STATISTICS WHERE TABLE_SCHEMA='%s' AND TABLE_NAME='%s'"
 
 // ReadTableIndexes returns all indexes and uniques of given table name
 func (d *DB) ReadTableIndexes(table string) (map[string]*Index, map[string]*Unique, error) {
@@ -130,10 +148,19 @@ func (d *DB) ReadTableIndexes(table string) (map[string]*Index, map[string]*Uniq
 		return nil, nil, fmt.Errorf("empty table name")
 	}
 
+	database := d.param.DBName
+	if "" == database {
+		var err error
+		database, err = d.CurrentDatabase()
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
 	var err error
 	var indexes []*_Index
 
-	query := fmt.Sprintf(_ReadTableIndexes, table)
+	query := fmt.Sprintf(_ReadTableIndexes, database, table)
 	err = d.db.Select(&indexes, query)
 	if err != nil {
 		return nil, nil, err

@@ -97,6 +97,13 @@ func testCreateTable(t *testing.T, d *DB) {
 		t.Errorf("expected error not raised")
 		return
 	}
+
+	indexes, uniques, err := d.ReadTableIndexes("t_test")
+	if err != nil {
+		t.Errorf("d.ReadTableIndexes error: %v", err)
+	}
+	t.Logf("indexes: %+v", indexes)
+	t.Logf("uniques: %+v", uniques)
 	return
 }
 
