@@ -222,7 +222,7 @@ func (d *DB) Select(dst interface{}, args ...interface{}) error {
 		"SELECT %s FROM `%s` %s %s %s %s",
 		fieldsStr, parsedArgs.Opt.TableName, condStr, orderStr, limitStr, offsetStr,
 	)
-	// log.Println(query)
+	// log.Println("select query:", query)
 
 	return d.db.Select(dst, query)
 }
@@ -233,6 +233,43 @@ func packOrder(o *Order) string {
 	}
 
 	return fmt.Sprintf("`%s` %s", o.Param, o.Seq)
+}
+
+// parseCondIn is invoked by parseCond. This handles sutiations those the operator is "in".
+func parseCondIn(c *Cond, fieldMap map[string]*Field) (field, operator, value string, err error) {
+	operator = "IN"
+	field = c.Param
+
+	switch c.Value.(type) {
+	default:
+		err = fmt.Errorf("invalid condition value type following by '%s'", c.Operator)
+		return
+	case []int, []uint, []int8, []uint8, []int16, []uint16, []int32, []uint32, []int64, []uint64, []float32, []float64:
+		s := fmt.Sprintf("%+v", c.Value)
+		s = strings.Replace(s, " ", ", ", -1)
+		value = "(" + s + ")"
+	case []string:
+		in := c.Value.([]string)
+		out := make([]string, 0, len(in))
+		for _, s := range in {
+			out = append(out, addQuoteToString(s, "'"))
+		}
+		value = "(" + strings.Join(out, ", ") + ")"
+	case []time.Time:
+		in := c.Value.([]time.Time)
+		_, exist := fieldMap[c.Param]
+		if false == exist {
+			err = fmt.Errorf("field '%s' not found", c.Param)
+			return
+		}
+		values := make([]string, 0, len(in))
+		for _, t := range in {
+			values = append(values, convTimeToString(t, fieldMap, c.Param))
+		}
+		value = "(" + strings.Join(values, ", ") + ")"
+	}
+
+	return
 }
 
 func parseCond(c *Cond, fieldMap map[string]*Field) (field, operator, value string, err error) {
@@ -247,8 +284,14 @@ func parseCond(c *Cond, fieldMap map[string]*Field) (field, operator, value stri
 	switch c.Operator {
 	case "==":
 		c.Operator = "="
-	case "=", "!=", "<>", ">", "<", ">=", "<=", "IS", "IS NOT":
-		// OK
+	case "=", "!=", "<>", ">", "<", ">=", "<=":
+		// continue below
+	case "IS", "is":
+		c.Operator = "IS"
+	case "IS NOT", "is not", "not", "NOT":
+		c.Operator = "IS NOT"
+	case "in", "IN":
+		return parseCondIn(c, fieldMap)
 	default:
 		err = fmt.Errorf("invalid operator '%s'", c.Operator)
 		return
@@ -256,6 +299,9 @@ func parseCond(c *Cond, fieldMap map[string]*Field) (field, operator, value stri
 
 	// value
 	switch c.Value.(type) {
+	default:
+		err = fmt.Errorf("invalid condition value type following by '%s'", c.Operator)
+		return
 	case int, int64, int32, int16, int8:
 		n := reflect.ValueOf(c.Value).Int()
 		value = strconv.FormatInt(n, 10)

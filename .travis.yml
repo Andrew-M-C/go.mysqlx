@@ -9,9 +9,12 @@ services:
 
 before_install:
   - mysql -e "CREATE DATABASE db_test;"
-  - mysql -e "grant all privileges on db_test.* to travis@localhost;"
-  - mysql -e "grant all privileges on db_test.* to 'at@'@localhost IDENTIFIED BY 'travis@12345';"
-  - mysql -e "grant all privileges on db_test.* to 'quote\''@localhost IDENTIFIED BY 'travis\'12345';"
+  # - mysql -e "CREATE USER travis@'%';"
+  # - mysql -e "CREATE USER 'at@'@'%' IDENTIFIED BY 'travis@12345';"
+  # - mysql -e "CREATE USER 'quote\''@'%' IDENTIFIED BY 'travis\'12345';"
+  - mysql -e "grant all privileges on db_test.* to travis@'%;"
+  - mysql -e "grant all privileges on db_test.* to 'at@'@'%' IDENTIFIED BY 'travis@12345';"
+  - mysql -e "grant all privileges on db_test.* to 'quote\''@'% IDENTIFIED BY 'travis\'12345';"
   - mysql -e "flush privileges;"
   - mysql -e "status;" > /tmp/status.txt
   - cat /tmp/status.txt

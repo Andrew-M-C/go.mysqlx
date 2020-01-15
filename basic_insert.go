@@ -29,34 +29,39 @@ func (d *DB) InsertFields(s interface{}, backQuoted bool) (keys []string, values
 	if err != nil {
 		return
 	}
+	// log.Println("field map:", fieldMap)
 
 	// handle each fields
 	numField := t.NumField()
 	keys = make([]string, 0, numField)
 	values = make([]string, 0, numField)
+	// log.Printf("got %d field(s)\n", numField)
 
 	for i := 0; i < numField; i++ {
 		tf := t.Field(i) // *StructField
 		vf := v.Field(i) // *Value
 		if false == vf.CanInterface() {
-			// // log.Println(tf.Type, " cannot interface")
+			// log.Println(tf.Type, "cannot interface")
 			continue
 		}
 
 		fieldName := getFieldName(&tf)
 		if fieldName == "" || fieldName == "-" {
 			if tf.Type.Kind() != reflect.Struct {
+				// log.Println("skip field", fieldName, "type", tf.Type.Kind())
 				continue // skip this
+			}
+		} else {
+			f, exist := fieldMap[fieldName]
+			if false == exist || f.AutoIncrement {
+				// log.Println(fieldName, "not exists")
+				continue
 			}
 		}
 
 		var val string
 		intf := vf.Interface()
-
-		f, exist := fieldMap[fieldName]
-		if false == exist || f.AutoIncrement {
-			continue
-		}
+		// log.Println("got field", fieldName)
 
 		switch intf.(type) {
 		case int, int8, int16, int32, int64:
@@ -95,6 +100,8 @@ func (d *DB) InsertFields(s interface{}, backQuoted bool) (keys []string, values
 				}
 				keys = append(keys, embedKey...)
 				values = append(values, embedValue...)
+			} else {
+				// log.Println("unknown type:", tf.Type.Kind())
 			}
 			continue
 		}

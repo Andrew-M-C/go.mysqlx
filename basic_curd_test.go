@@ -206,6 +206,20 @@ func TestQuery(t *testing.T) {
 	}
 	showResult(t, res)
 
+	// read back
+	var result []Disney
+	lastID, _ := res.LastInsertId()
+	err = db.Select(&result, Cond{"id", "=", lastID})
+	if err != nil {
+		t.Errorf("db.Select error: %v", err)
+		return
+	}
+	if result[0].FirstName != newDisney.FirstName {
+		t.Errorf("unexpected result: %+v", result[0])
+		return
+	}
+	t.Logf("Got id=%d result: %+v", lastID, result[0])
+
 	// insert another one thrice
 	newUser := User{
 		FirstName:       sql.NullString{Valid: true, String: "Diane"},
@@ -243,7 +257,6 @@ func TestQuery(t *testing.T) {
 	showResult(t, res)
 
 	// select
-	var result []Disney
 	err = db.Select(
 		&result,
 		Cond{"family_name", "<>", "Disney"},
@@ -283,6 +296,21 @@ func TestQuery(t *testing.T) {
 		return
 	}
 	t.Logf("affected row(s): %d", affected)
+
+	// select with in
+	result = []Disney{}
+	err = db.Select(
+		&result,
+		Cond{"first_name", "in", []string{"Diane", "Walter"}},
+	)
+	if err != nil {
+		t.Errorf("select with IN failed: %v", err)
+		return
+	}
+	if len(result) < 2 {
+		t.Errorf("unexpected result count %d", len(result))
+		return
+	}
 
 	// delete
 	res, err = db.Delete(

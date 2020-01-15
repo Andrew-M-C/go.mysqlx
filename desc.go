@@ -116,6 +116,7 @@ type _Index struct {
 	Comment      string         `db:"Comment"`
 	IndexComment string         `db:"Index_comment"`
 	Visible      string         `db:"Visible"`
+	Expression   sql.NullString `db:"Expression"`
 }
 
 const _ReadTableIndexes = "show index from `%s`"
