@@ -75,11 +75,11 @@ func TestSelectOrInsert(t *testing.T) {
 		Cond{"first_name", "=", "Abigail"},
 		Cond{"family_name", "=", "Disney"},
 	)
-
 	if err != nil {
 		t.Errorf("SelectOrInsertOne failed: %v", err)
 		return
 	}
+
 	showResult(t, res)
 	t.Logf("Got return: %+v", all)
 

@@ -334,9 +334,11 @@ func (d *DB) createAndAlterTableStatements(v interface{}, opts ...Options) (exis
 		if false == strings.Contains(err.Error(), "doesn't exist") {
 			return
 		}
-
 		shouldCreate = true
 		// and then continue
+	}
+	if nil == fieldsInDB || 0 == len(fieldsInDB) {
+		shouldCreate = true
 	}
 
 	// create or alter fields

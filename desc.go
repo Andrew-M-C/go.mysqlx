@@ -44,7 +44,17 @@ type _Field struct {
 // WHERE table_schema='%s' and table_name='%s' ORDER BY ORDINAL_POSITION;
 // `
 
-const _ReadTableFields = "desc `%s`"
+// const _ReadTableFields = "desc `%s`"
+
+const _ReadTableFields = `SELECT
+	COLUMN_NAME as ` + "`Field`" + `,
+	COLUMN_TYPE as ` + "`Type`" + `,
+	IS_NULLABLE as ` + "`Null`" + `,
+	COLUMN_DEFAULT as ` + "`Default`" + `,
+	COLUMN_KEY as ` + "`Key`" + `,
+	EXTRA as ` + "`Extra`" + `
+FROM information_schema.COLUMNS
+WHERE TABLE_SCHEMA='%s' AND TABLE_NAME='%s' ORDER BY ORDINAL_POSITION`
 
 // ReadTableFields returns all fields in given table
 func (d *DB) ReadTableFields(table string) (ret []*Field, err error) {
@@ -55,14 +65,25 @@ func (d *DB) ReadTableFields(table string) (ret []*Field, err error) {
 		return nil, fmt.Errorf("empty table name")
 	}
 
-	query := fmt.Sprintf(_ReadTableFields, table)
+	database := d.param.DBName
+	if "" == database {
+		var err error
+		database, err = d.CurrentDatabase()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// query := fmt.Sprintf(_ReadTableFields, table)
+	query := fmt.Sprintf(_ReadTableFields, database, table)
 	var fields []*_Field
 	err = d.db.Select(&fields, query)
 	if err != nil {
 		return nil, err
 	}
 	if nil == fields || 0 == len(fields) {
-		return make([]*Field, 0), nil
+		// return make([]*Field, 0), nil
+		return nil, fmt.Errorf("Table '%s.%s' doesn't exist", database, table)
 	}
 
 	ret = make([]*Field, 0, len(fields))
@@ -137,7 +158,7 @@ type _Index struct {
 }
 
 // const _ReadTableIndexes = "show index from `%s`"
-const _ReadTableIndexes = "select `TABLE_NAME`, `NON_UNIQUE`, `INDEX_NAME`, `SEQ_IN_INDEX`, `COLUMN_NAME`, `NULLABLE` FROM information_schema.STATISTICS WHERE TABLE_SCHEMA='%s' AND TABLE_NAME='%s'"
+const _ReadTableIndexes = "SELECT TABLE_NAME, NON_UNIQUE, INDEX_NAME, SEQ_IN_INDEX, COLUMN_NAME, NULLABLE FROM information_schema.STATISTICS WHERE TABLE_SCHEMA='%s' AND TABLE_NAME='%s'"
 
 // ReadTableIndexes returns all indexes and uniques of given table name
 func (d *DB) ReadTableIndexes(table string) (map[string]*Index, map[string]*Unique, error) {
