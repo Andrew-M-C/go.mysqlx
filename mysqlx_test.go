@@ -1,6 +1,7 @@
 package mysqlx
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/jmoiron/sqlx"
@@ -73,16 +74,28 @@ func TestNew(t *testing.T) {
 	var err error
 	sqlxDB, err := sqlx.Open("mysql", "travis@tcp(localhost:3306)")
 	if err != nil {
-		panic(err)
-	}
-
-	_, err = New(sqlxDB)
-	if err != nil {
-		// this is expected
-		// t.Logf("catch expected err message: %v", err)
+		if strings.Contains(err.Error(), "missing the slash") {
+			// expected error
+			t.Logf("expected error: %v", err)
+		} else {
+			t.Errorf("sqlx.Open unexpected error: %v", err)
+			return
+		}
 	} else {
-		t.Errorf("error expected but not received")
-		return
+		// sometimes this does not cause error
+		_, err = New(sqlxDB)
+		if err != nil {
+			if strings.Contains(err.Error(), "missing the slash") {
+				// expected error
+				t.Logf("expected error: %v", err)
+			} else {
+				t.Errorf("catch unexpected error: %v", err)
+				return
+			}
+		} else {
+			t.Errorf("error expected but not received")
+			return
+		}
 	}
 
 	// ---
