@@ -2,10 +2,10 @@ package mysqlx
 
 import (
 	"fmt"
-	"sync"
 	"strings"
+	"sync"
 
-	"github.com/Andrew-M-C/go.atomicbool"
+	atomicbool "github.com/Andrew-M-C/go.atomicbool"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -104,17 +104,4 @@ type Offset struct {
 // Limit is for MySQL limit statement
 type Limit struct {
 	Limit int
-}
-
-// Cond is for constructing MySQL WHERE statement
-type Cond struct {
-	Param    string
-	Operator string
-	Value    interface{}
-}
-
-// Order is for MySQL ORDER BY statement
-type Order struct {
-	Param string
-	Seq   string
 }

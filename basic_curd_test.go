@@ -275,6 +275,28 @@ func TestQuery(t *testing.T) {
 		t.Logf("Get %d response(s)", len(result))
 	}
 
+	// select with OR
+	result = []Disney{}
+	err = db.Select(
+		&result,
+		Or{
+			Cond{"first_name", "=", "Diane"},
+			Cond{"first_name", "=", "Walter"},
+		},
+	)
+	if err != nil {
+		t.Errorf("select all disney error: %v", err)
+		return
+	}
+	if nil == result || 0 == len(result) {
+		t.Errorf("no OR selection returned")
+	} else {
+		t.Logf("Get OR %d response(s)", len(result))
+	}
+	for _, u := range result {
+		t.Logf("%+v", u)
+	}
+
 	// update
 	res, err = db.Update(
 		Disney{}, map[string]interface{}{
