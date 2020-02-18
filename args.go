@@ -54,6 +54,12 @@ func (d *DB) handleArgs(prototype interface{}, args []interface{}) (ret *_parsed
 		case *Cond:
 			cond := arg.(*Cond)
 			c = cond.pack(ret.FieldMap)
+		case And:
+			and := arg.(And)
+			c = and.pack(ret.FieldMap)
+		case *And:
+			and := arg.(*And)
+			c = and.pack(ret.FieldMap)
 		case Or:
 			or := arg.(Or)
 			c = or.pack(ret.FieldMap)
