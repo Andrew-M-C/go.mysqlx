@@ -46,7 +46,10 @@ func (d *DB) InsertFields(s interface{}, backQuoted bool) (keys []string, values
 		}
 
 		fieldName := getFieldName(&tf)
-		if fieldName == "" || fieldName == "-" {
+		if fieldName == "-" {
+			continue
+		}
+		if fieldName == "" {
 			if tf.Type.Kind() != reflect.Struct {
 				// log.Println("skip field", fieldName, "type", tf.Type.Kind())
 				continue // skip this

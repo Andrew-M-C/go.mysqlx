@@ -425,7 +425,10 @@ func readStructFields(t reflect.Type, v reflect.Value) (ret []*Field, err error)
 		fieldIncr := false
 		fieldComt := ""
 
-		if fieldName == "" || fieldName == "-" {
+		if fieldName == "-" {
+			continue
+		}
+		if fieldName == "" {
 			if tf.Type.Kind() != reflect.Struct {
 				continue // skip this
 			}

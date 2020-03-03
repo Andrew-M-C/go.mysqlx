@@ -21,6 +21,7 @@ type User struct {
 	Certified       sql.NullBool     `db:"certified"`
 	StatusMasks     uint64           `db:"status_masks"`
 	DieTime         mariadb.NullTime `db:"die_time"`
+	IgnoreField     time.Time        `db:"-"`
 }
 
 type Disney struct {
@@ -59,6 +60,9 @@ func TestSelectOrInsert(t *testing.T) {
 
 	d.Sqlx().Exec("DROP TABLE `t_user`")
 	d.AutoCreateTable()
+
+	fields, _ := d.SelectFields(User{})
+	t.Logf("User fields: %v", fields)
 
 	abigai := User{
 		FirstName:  sql.NullString{Valid: true, String: "Abigail"},
