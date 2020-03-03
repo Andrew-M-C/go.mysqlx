@@ -338,6 +338,15 @@ func TestQuery(t *testing.T) {
 		return
 	}
 
+	err = db.Select(
+		&result,
+		Cond{"update_timestamp", "in", []int32{1, 2, 3}},
+	)
+	if err != nil {
+		t.Errorf("select with IN failed: %v", err)
+		return
+	}
+
 	// delete
 	res, err = db.Delete(
 		Disney{},

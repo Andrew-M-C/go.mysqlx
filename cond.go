@@ -27,7 +27,9 @@ func (c *Cond) parseIn(fieldMap map[string]*Field) (field, operator, value strin
 	case []int, []uint, []int8, []uint8, []int16, []uint16, []int32, []uint32, []int64, []uint64, []float32, []float64:
 		s := fmt.Sprintf("%+v", c.Value)
 		s = strings.Replace(s, " ", ", ", -1)
-		value = "(" + s + ")"
+		s = strings.Replace(s, "[", "(", -1)
+		s = strings.Replace(s, "]", ")", -1)
+		value = s
 	case []string:
 		in := c.Value.([]string)
 		out := make([]string, 0, len(in))
