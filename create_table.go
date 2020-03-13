@@ -163,8 +163,9 @@ func (d *DB) mysqlCreateTableStatement(fields []*Field, opt *Options) (string, e
 	if nil == autoIncField {
 		autoIncOne = ""
 	}
+	// refernece: https://www.cnblogs.com/ilovewindy/p/4726786.html
 	final := fmt.Sprintf(
-		"CREATE TABLE IF NOT EXISTS `%s` (\n%s\n) ENGINE=InnoDB %s DEFAULT CHARSET=utf8 COMMENT '%s'",
+		"CREATE TABLE IF NOT EXISTS `%s` (\n%s\n) ENGINE=InnoDB %s DEFAULT CHARSET=utf8mb4 COMMENT '%s'",
 		opt.TableName,
 		strings.Join(statements, ",\n"),
 		autoIncOne, desc,
