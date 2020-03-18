@@ -72,7 +72,8 @@ func (d *DB) InsertFields(s interface{}, backQuoted bool) (keys []string, values
 		case uint, uint8, uint16, uint32, uint64:
 			val = strconv.FormatUint(vf.Uint(), 10)
 		case string:
-			val = addQuoteToString(vf.String(), "'")
+			s := escapeValueString(vf.String())
+			val = addQuoteToString(s, "'")
 		case bool:
 			val = convBoolToString(vf.Bool())
 		case float32, float64:

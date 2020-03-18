@@ -101,6 +101,7 @@ func (c *Cond) parse(fieldMap map[string]*Field) (field, operator, value string,
 		value = fmt.Sprintf("%f", f)
 	case string:
 		s := c.Value.(string)
+		s = escapeValueString(s)
 		value = addQuoteToString(s, "'")
 	case time.Time:
 		t := c.Value.(time.Time)

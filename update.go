@@ -102,7 +102,7 @@ func (d *DB) genUpdateKVs(prototype interface{}, fields map[string]interface{}) 
 			f := reflect.ValueOf(v).Float()
 			kv = append(kv, fmt.Sprintf("`%s` = %f", k, f))
 		case string:
-			s := v.(string)
+			s := escapeValueString(v.(string))
 			kv = append(kv, "`"+k+"`"+" = "+addQuoteToString(s, "'"))
 		case time.Time:
 			t := v.(time.Time)
