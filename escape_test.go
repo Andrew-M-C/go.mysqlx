@@ -2,11 +2,13 @@ package mysqlx
 
 import (
 	"testing"
+	"time"
 )
 
 type String struct {
-	ID int32  `db:"id"     mysqlx:"increment:true"`
-	S  string `db:"string" mysqlx:"type:varchar(128)"`
+	ID      int32  `db:"id"               mysqlx:"increment:true"`
+	S       string `db:"string"           mysqlx:"type:varchar(128)"`
+	Created int64  `db:"create_timestamp"`
 }
 
 func (String) Options() Options {
@@ -20,7 +22,8 @@ func TestSpecialCharacters(t *testing.T) {
 	printf := t.Logf
 	errorf := t.Errorf
 
-	speChars := "%_％＿'"
+	speChars := `<%_％＿'"` + "`" + `%\r\n\t\b
+	>`
 
 	db, err := Open(Param{
 		User:   "travis",
@@ -31,21 +34,27 @@ func TestSpecialCharacters(t *testing.T) {
 		return
 	}
 
+	// statememts, err := db.CreateOrAlterTableStatements(String{})
+
 	db.MustCreateTable(String{})
 	printf("now test special characters: '%s'", speChars)
 
 	// insert
-	s := String{S: speChars}
+	s := String{
+		S:       speChars,
+		Created: time.Now().Unix(),
+	}
 	res, err := db.Insert(s)
 	if err != nil {
 		errorf("%v", err)
 		return
 	}
-	if res.LastInsertId == 0 {
-		errorf("none inserted")
+	last, err := res.LastInsertId()
+	if err != nil {
+		errorf("none inserted %v", err)
 		return
 	}
-	printf("inserted: %v", res.LastInsertId)
+	printf("inserted id: %d", last)
 
 	// select
 	var arr []String
@@ -61,9 +70,14 @@ func TestSpecialCharacters(t *testing.T) {
 		errorf("nothing got")
 		return
 	}
+	printf("got spe string: '%s'", arr[0].S)
+	if arr[0].S != speChars {
+		errorf("expected <%s>, got <%s>", speChars, arr[0].S)
+		return
+	}
 
 	// update
-	_, err = db.Update(
+	res, err = db.Update(
 		s,
 		map[string]interface{}{
 			"string": speChars + " ",
@@ -74,11 +88,24 @@ func TestSpecialCharacters(t *testing.T) {
 		errorf("%v", err)
 		return
 	}
+	if affected, _ := res.RowsAffected(); 0 == affected {
+		errorf("none affected")
+		return
+	}
 
 	// delete
-	_, err = db.Delete(s, Cond{"string", "=", speChars + " "})
+	res, err = db.Delete(s, Cond{"string", "=", speChars + " "})
 	if err != nil {
 		errorf("%v", err)
+		return
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		errorf("affected err: %v", err)
+		return
+	}
+	if 0 == affected {
+		errorf("none affected")
 		return
 	}
 
