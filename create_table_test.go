@@ -2,6 +2,7 @@ package mysqlx
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"testing"
 	"time"
@@ -169,4 +170,119 @@ func testCreateTableMiscError(t *testing.T, d *DB) {
 type SimpleStruct struct {
 	ID   int32  `db:"id"   mysqlx:"increment:true"`
 	UUID string `db:"uuid" mysqlx:"type:varchar(32)"`
+}
+
+// test pointer struct
+func TestVariousStruct(t *testing.T) {
+	errorf := t.Errorf
+	printf := t.Logf
+
+	db, err := Open(Param{
+		User:   "travis",
+		DBName: "db_test",
+	})
+	if err != nil {
+		t.Errorf("open failed: %v", err)
+		return
+	}
+
+	db.AutoCreateTable()
+	db.Sqlx().Exec("DROP TABLE `t_vartable_00`")
+	db.Sqlx().Exec("DROP TABLE `t_vartable_01`")
+	db.Sqlx().Exec("DROP TABLE `t_vartable_02`")
+
+	line := &VarTable{
+		String: "Hello, mysqlx!",
+		index:  1,
+	}
+
+	// insert
+	res, err := db.Insert(line)
+	if err != nil {
+		errorf("db.Insert() error: %v", err)
+		return
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		errorf("res.LastInsertId() error: %v", err)
+		return
+	}
+	printf("inserted %d", id)
+
+	// update
+	res, err = db.Update(
+		line,
+		map[string]interface{}{
+			"str": "Hello, MySQLx!",
+		},
+	)
+	if err != nil {
+		errorf("Update error: %v", err)
+		return
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		errorf("RowsAffected error: %v", err)
+		return
+	}
+	if affected == 0 {
+		errorf("none affected")
+		return
+	}
+
+	// select
+	var arr []*VarTable
+	err = db.Select(&arr, line.Options())
+	if err != nil {
+		errorf("Select() error: %v", err)
+		return
+	}
+	if 0 == len(arr) {
+		errorf("none selected")
+		return
+	}
+
+	if arr[0].String == line.String {
+		errorf("selected string '%s' should NOT equal", arr[0].String)
+		return
+	}
+
+	// delete
+	res, err = db.Delete(
+		line,
+		Cond{"id", "=", id},
+	)
+	if err != nil {
+		errorf("Delete error: %v", err)
+		return
+	}
+	affected, err = res.RowsAffected()
+	if err != nil {
+		errorf("none affected? %v", err)
+		return
+	}
+	if 0 == affected {
+		errorf("none affected")
+		return
+	}
+
+	return
+}
+
+type VarTable struct {
+	ID     int32  `db:"id"   mysqlx:"increment:true"`
+	String string `db:"str"  mysqlx:"type:varchar(256)"`
+	index  int
+}
+
+func (s *VarTable) Options() Options {
+	if nil == s {
+		panic("nil object")
+	}
+	tableName := fmt.Sprintf("t_vartable_%02d", s.index)
+	log.Printf("table name: '%s'", tableName)
+
+	return Options{
+		TableName: tableName,
+	}
 }

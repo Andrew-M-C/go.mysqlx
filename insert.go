@@ -133,6 +133,7 @@ func (d *DB) Insert(v interface{}, opts ...Options) (result sql.Result, err erro
 	// Should be *Xxx or Xxx
 	ty := reflect.TypeOf(v)
 	va := reflect.ValueOf(v)
+	prototypeType := ty
 	// log.Printf("%v - %v\n", ty, ty.Kind())
 	if reflect.Ptr == ty.Kind() {
 		v = va.Elem().Interface()
@@ -141,7 +142,7 @@ func (d *DB) Insert(v interface{}, opts ...Options) (result sql.Result, err erro
 	}
 
 	if reflect.Struct != ty.Kind() {
-		return nil, fmt.Errorf("parameter type invalid (%v)", ty)
+		return nil, fmt.Errorf("parameter type invalid (%v)", prototypeType)
 	}
 
 	keys, values, err := d.InsertFields(v, true)

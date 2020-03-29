@@ -11,6 +11,10 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
+var (
+	debugf = log.Printf
+)
+
 type dbInfo struct {
 	Name sql.NullString `db:"database()"`
 }

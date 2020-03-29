@@ -23,7 +23,8 @@ func (d *DB) Update(prototype interface{}, fields map[string]interface{}, args .
 	// Should be *Xxx or Xxx
 	ty := reflect.TypeOf(prototype)
 	va := reflect.ValueOf(prototype)
-	// log.Printf("%v - %v\n", ty, ty.Kind())
+	prototypeType := ty
+	// debugf("%v - %v\n", ty, ty.Kind())
 	if reflect.Ptr == ty.Kind() {
 		prototype = va.Elem().Interface()
 		ty = reflect.TypeOf(prototype)
@@ -31,7 +32,7 @@ func (d *DB) Update(prototype interface{}, fields map[string]interface{}, args .
 	}
 
 	if reflect.Struct != ty.Kind() {
-		return nil, fmt.Errorf("parameter type invalid (%v)", ty)
+		return nil, fmt.Errorf("parameter type invalid (%v)", prototypeType)
 	}
 
 	opt := mergeOptions(prototype)

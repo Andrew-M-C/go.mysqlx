@@ -68,11 +68,34 @@ func (d *DB) checkAutoCreateTable(v interface{}, opt Options) error {
 	return d.CreateTable(v, opt)
 }
 
+// duplicateStructAndGetOpts As we cannot directly get the address value
+// from a structure reflect.Value, what we could do is duplicate it and
+// create a new pointer type and invoke optionInterface from it.
+// Reference: https://groups.google.com/forum/#!topic/golang-nuts/KB3_Yj3Ny4c
+func duplicateStructAndGetOpts(v interface{}) Options {
+	// v is a structure here
+	val := reflect.ValueOf(v)
+	newVal := reflect.New(val.Type())
+	elem := newVal.Elem()
+	elem.Set(val)
+
+	v = newVal.Interface()
+	if intf, ok := v.(optionInterface); ok {
+		return intf.Options()
+	}
+
+	return Options{}
+}
+
 func mergeOptions(v interface{}, opts ...Options) Options {
+	// v is a structure type here
 	opt := Options{}
 	if intf, ok := v.(optionInterface); ok {
 		opt = intf.Options()
+	} else {
+		opt = duplicateStructAndGetOpts(v)
 	}
+
 	if len(opts) > 0 {
 		// copy each option
 		if "" != opts[0].TableName {
