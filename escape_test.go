@@ -22,8 +22,7 @@ func TestSpecialCharacters(t *testing.T) {
 	printf := t.Logf
 	errorf := t.Errorf
 
-	speChars := `<%_％＿'"` + "`" + `%\r\n\t\b
-	>`
+	speChars := `<%_％＿'"` + "`" + `%\r\n\t\b	>` + "\r\n\\'\032"
 
 	db, err := Open(Param{
 		User:   "travis",
@@ -37,7 +36,7 @@ func TestSpecialCharacters(t *testing.T) {
 	// statememts, err := db.CreateOrAlterTableStatements(String{})
 
 	db.MustCreateTable(String{})
-	printf("now test special characters: '%s'", speChars)
+	printf("test spe string: '%s'", speChars)
 
 	// insert
 	s := String{
@@ -70,7 +69,7 @@ func TestSpecialCharacters(t *testing.T) {
 		errorf("nothing got")
 		return
 	}
-	printf("got spe string: '%s'", arr[0].S)
+	printf("got spe string:  '%s'", arr[0].S)
 	if arr[0].S != speChars {
 		errorf("expected <%s>, got <%s>", speChars, arr[0].S)
 		return
