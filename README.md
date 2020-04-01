@@ -2,7 +2,7 @@
 
 [![Build status](https://travis-ci.org/Andrew-M-C/go.mysqlx.svg?branch=master)](https://travis-ci.org/Andrew-M-C/go.mysqlx)
 [![report](https://goreportcard.com/badge/github.com/Andrew-M-C/go.mysqlx)](https://goreportcard.com/report/github.com/Andrew-M-C/go.mysqlx)
-[![Latest](https://img.shields.io/badge/latest-v0.1.0-orange.svg)](https://github.com/Andrew-M-C/go.mysqlx/tree/v0.1.0)
+[![Latest](https://img.shields.io/badge/latest-v0.2.0-orange.svg)](https://github.com/Andrew-M-C/go.mysqlx/tree/v0.2.0)
 [![License](https://img.shields.io/badge/license-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
 <details>
@@ -45,10 +45,6 @@ reference: [Stackoverflow](https://stackoverflow.com/questions/45040319/unsuppor
 
 This is because sqlx does not parse *time.Time by default. Add "`parseTime=true`" parameter then opening MySQL with **sqlx**.
 
-## References for Travis CI yaml writting
+## Changelog
 
-- [Environment Variables](https://docs.travis-ci.com/user/environment-variables/)
-- [Build Matrix](https://docs.travis-ci.com/user/build-matrix/)
-- [Setting up Databases and Services](https://docs.travis-ci.com/user/database-setup/)
-- [Test multiple MySQL versions on Travis](https://core.trac.wordpress.org/ticket/30462)
-- [YAML 语言教程](https://www.ruanyifeng.com/blog/2016/07/yaml.html)
+[Click here](./CHANGELOG.md)
