@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"strings"
 	"testing"
 	"time"
 )
@@ -196,6 +197,20 @@ func TestVariousStruct(t *testing.T) {
 		index:  1,
 	}
 
+	// check if the create table including ROW_FORMAT=DYNAMIC
+	_, statements, err := db.CreateOrAlterTableStatements(*line)
+	if err != nil {
+		errorf("got create table statement error: %v", err)
+		return
+	}
+
+	stm := statements[0]
+	printf("statement: %v", stm)
+	if false == strings.Contains(stm, "ROW_FORMAT=DYNAMIC") {
+		errorf("not including 'ROW_FORMAT=DYNAMIC'")
+		return
+	}
+
 	// insert
 	res, err := db.Insert(line)
 	if err != nil {
@@ -284,5 +299,8 @@ func (s *VarTable) Options() Options {
 
 	return Options{
 		TableName: tableName,
+		CreateTableParams: map[string]string{
+			"ROW_FORMAT": "DYNAMIC",
+		},
 	}
 }

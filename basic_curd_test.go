@@ -211,7 +211,7 @@ func TestQuery(t *testing.T) {
 	showResult(t, res)
 
 	// read back
-	var result []Disney
+	var result []*Disney
 	lastID, _ := res.LastInsertId()
 	err = db.Select(&result, Cond{"id", "=", lastID})
 	if err != nil {
@@ -280,7 +280,7 @@ func TestQuery(t *testing.T) {
 	}
 
 	// select with OR
-	result = []Disney{}
+	result = nil
 	err = db.Select(
 		&result,
 		Or{
@@ -324,10 +324,13 @@ func TestQuery(t *testing.T) {
 	t.Logf("affected row(s): %d", affected)
 
 	// select with in
-	result = []Disney{}
+	result = nil
 	err = db.Select(
 		&result,
-		Cond{"first_name", "in", []string{"Diane", "Walter"}},
+		And{
+			Cond{"first_name", "in", []string{"Diane", "Walter"}},
+			Cond{"update_timestamp", "!=", 0},
+		},
 	)
 	if err != nil {
 		t.Errorf("select with IN failed: %v", err)

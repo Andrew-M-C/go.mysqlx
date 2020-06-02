@@ -96,6 +96,10 @@ func mergeOptions(v interface{}, opts ...Options) Options {
 		opt = duplicateStructAndGetOpts(v)
 	}
 
+	if nil == opt.CreateTableParams {
+		opt.CreateTableParams = map[string]string{}
+	}
+
 	if len(opts) > 0 {
 		// copy each option
 		if "" != opts[0].TableName {
@@ -109,6 +113,9 @@ func mergeOptions(v interface{}, opts ...Options) Options {
 		}
 		if opts[0].Uniques != nil && len(opts[0].Uniques) > 0 {
 			opt.Uniques = opts[0].Uniques
+		}
+		for k, v := range opts[0].CreateTableParams {
+			opt.CreateTableParams[k] = v
 		}
 	}
 	if nil == opt.Indexes {
@@ -182,16 +189,37 @@ func (d *DB) mysqlCreateTableStatement(fields []*Field, opt *Options) (string, e
 
 	// package final create statements
 	desc := strings.Replace(opt.TableDescption, "'", "\\'", -1)
-	autoIncOne := "AUTO_INCREMENT=1"
-	if nil == autoIncField {
-		autoIncOne = ""
+	extOptions := map[string]string{
+		"ENGINE":          "InnoDB",
+		"DEFAULT CHARSET": "utf8mb4",
 	}
+
+	if autoIncField != nil {
+		extOptions["AUTO_INCREMENT"] = "1"
+	}
+
+	// customized options
+	for k, v := range opt.CreateTableParams {
+		k = strings.ToUpper(k)
+		extOptions[k] = v
+	}
+
+	// additional build options
+	options := bytes.Buffer{}
+	for k, v := range extOptions {
+		options.WriteString(k)
+		options.WriteRune('=')
+		options.WriteString(v)
+		options.WriteRune(' ')
+	}
+
 	// refernece: https://www.cnblogs.com/ilovewindy/p/4726786.html
 	final := fmt.Sprintf(
-		"CREATE TABLE IF NOT EXISTS `%s` (\n%s\n) ENGINE=InnoDB %s DEFAULT CHARSET=utf8mb4 COMMENT '%s'",
+		"CREATE TABLE IF NOT EXISTS `%s` (\n%s\n) %sCOMMENT '%s'",
 		opt.TableName,
 		strings.Join(statements, ",\n"),
-		autoIncOne, desc,
+		options.String(),
+		desc,
 	)
 
 	// done
@@ -337,7 +365,7 @@ func (d *DB) createAndAlterTableStatements(v interface{}, opts ...Options) (exis
 	// read options
 	alter = []string{}
 	opt = mergeOptions(v, opts...)
-	// log.Println("final opts: ", opt)
+	// log.Printf("final opts: %+v", opt)
 
 	// check options
 	if "" == opt.TableName {
@@ -346,6 +374,7 @@ func (d *DB) createAndAlterTableStatements(v interface{}, opts ...Options) (exis
 	}
 
 	// read fields
+	// log.Println("now start ReadStructFields")
 	fields, err := ReadStructFields(v)
 	if err != nil {
 		return
@@ -353,6 +382,7 @@ func (d *DB) createAndAlterTableStatements(v interface{}, opts ...Options) (exis
 
 	// read fields and check if table exists
 	shouldCreate := false
+	// log.Println("now start readTableFields")
 	fieldsInDB, err := d.ReadTableFields(opt.TableName)
 	if err != nil {
 		if false == strings.Contains(err.Error(), "doesn't exist") {
@@ -367,6 +397,7 @@ func (d *DB) createAndAlterTableStatements(v interface{}, opts ...Options) (exis
 
 	// create or alter fields
 	if shouldCreate || nil == fieldsInDB {
+		// log.Println("shouldCreate")
 		create, err = d.mysqlCreateTableStatement(fields, &opt)
 		return
 	}

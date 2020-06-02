@@ -90,10 +90,11 @@ type Field struct {
 
 // Options identifies options and parameters for a structure
 type Options struct {
-	TableName      string
-	TableDescption string
-	Indexes        []Index
-	Uniques        []Unique
+	TableName         string
+	TableDescption    string
+	Indexes           []Index
+	Uniques           []Unique
+	CreateTableParams map[string]string
 }
 
 // Offset is for MySQL offset statement
