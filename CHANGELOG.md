@@ -10,3 +10,7 @@
 - Now prototypes parameter could either be a struct or a pointer to struct.
 - Cancel go 1.1 in CI test.
 - Defaultly use `charset=utfmb4` instead of `utf8`.
+
+## v0.3.0
+
+- Add `Condition()` and `Statement()` to generate `Cond` data type.

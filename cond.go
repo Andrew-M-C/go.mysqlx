@@ -15,6 +15,15 @@ type Cond struct {
 	Value    interface{}
 }
 
+// Condition return Cond data in function format
+func Condition(param, operator string, value interface{}) *Cond {
+	return &Cond{
+		Param:    param,
+		Operator: operator,
+		Value:    value,
+	}
+}
+
 // parseCondIn is invoked by parseCond. This handles sutiations those the operator is "in".
 func (c *Cond) parseIn(fieldMap map[string]*Field) (field, operator, value string, err error) {
 	operator = "IN"
@@ -51,6 +60,10 @@ func (c *Cond) parseIn(fieldMap map[string]*Field) (field, operator, value strin
 		value = "(" + strings.Join(values, ", ") + ")"
 	}
 
+	if value == "()" {
+		err = fmt.Errorf("empty values in field '%s'", field)
+		return
+	}
 	return
 }
 
@@ -74,6 +87,10 @@ func (c *Cond) parse(fieldMap map[string]*Field) (field, operator, value string,
 		c.Operator = "IS NOT"
 	case "in", "IN":
 		return c.parseIn(fieldMap)
+	case "not in", "NOT IN":
+		field, operator, value, err = c.parseIn(fieldMap)
+		operator = "NOT IN"
+		return
 	default:
 		err = fmt.Errorf("invalid operator '%s'", c.Operator)
 		return

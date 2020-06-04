@@ -87,6 +87,12 @@ func (d *DB) genUpdateKVs(prototype interface{}, fields map[string]interface{}) 
 			return nil, fmt.Errorf("field '%s' not recognized", k)
 		}
 		switch v.(type) {
+		case RawStatement:
+			statement := v.(RawStatement)
+			kv = append(kv, fmt.Sprintf("`%s` = %s", k, statement))
+		case *RawStatement:
+			statement := v.(*RawStatement)
+			kv = append(kv, fmt.Sprintf("`%s` = %s", k, *statement))
 		case int, int64, int32, int16, int8:
 			n := reflect.ValueOf(v).Int()
 			kv = append(kv, fmt.Sprintf("`%s` = %d", k, n))

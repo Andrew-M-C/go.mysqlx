@@ -59,7 +59,7 @@ func TestSpecialCharacters(t *testing.T) {
 	var arr []String
 	err = db.Select(
 		&arr,
-		Cond{"string", "=", speChars},
+		Condition("string", "=", speChars),
 	)
 	if err != nil {
 		errorf("%v", err)
@@ -81,7 +81,7 @@ func TestSpecialCharacters(t *testing.T) {
 		map[string]interface{}{
 			"string": speChars + " ",
 		},
-		Cond{"string", "=", speChars},
+		Condition("string", "=", speChars),
 	)
 	if err != nil {
 		errorf("%v", err)
@@ -93,7 +93,7 @@ func TestSpecialCharacters(t *testing.T) {
 	}
 
 	// delete
-	res, err = db.Delete(s, Cond{"string", "=", speChars + " "})
+	res, err = db.Delete(s, Condition("string", "=", speChars+" "))
 	if err != nil {
 		errorf("%v", err)
 		return

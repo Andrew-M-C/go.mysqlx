@@ -265,7 +265,7 @@ func TestVariousStruct(t *testing.T) {
 	// delete
 	res, err = db.Delete(
 		line,
-		Cond{"id", "=", id},
+		Condition("id", "=", id),
 	)
 	if err != nil {
 		errorf("Delete error: %v", err)

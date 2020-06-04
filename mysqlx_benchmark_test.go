@@ -66,7 +66,7 @@ func BenchmarkSelectMysqlx(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		id := rand.Int31n(cDataLines)
-		d.Select(&res, Cond{"id", "=", id + 1})
+		d.Select(&res, Condition("id", "=", id+1))
 	}
 
 	return

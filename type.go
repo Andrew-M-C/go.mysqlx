@@ -18,6 +18,10 @@ type Param struct {
 	DBName string
 }
 
+// RawStatement identifies raw MySQL statement, which will be directly added into sql statements.
+// Now RawStatement is available in Update function.
+type RawStatement string
+
 // DB is the main structure for mysqlx
 type DB struct {
 	db    *sqlx.DB

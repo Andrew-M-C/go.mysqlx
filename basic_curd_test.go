@@ -46,95 +46,11 @@ func (User) Options() Options {
 	}
 }
 
-func TestSelectOrInsert(t *testing.T) {
-	var err error
-
-	d, err := Open(Param{
+func getDB() (*DB, error) {
+	return Open(Param{
 		User:   "travis",
 		DBName: "db_test",
 	})
-	if err != nil {
-		t.Errorf("open failed: %v", err)
-		return
-	}
-
-	d.Sqlx().Exec("DROP TABLE `t_user`")
-	d.AutoCreateTable()
-
-	fields, _ := d.SelectFields(User{})
-	t.Logf("User fields: %v", fields)
-
-	abigai := User{
-		FirstName:  sql.NullString{Valid: true, String: "Abigail"},
-		MiddleName: sql.NullString{Valid: true, String: "E."},
-		FamilyName: sql.NullString{Valid: true, String: "Disney"},
-		FullName:   "Abigail Disney",
-		Gender:     "Female",
-		BirthDate:  time.Date(1960, 1, 24, 0, 0, 0, 0, time.UTC),
-	}
-	var all []User
-
-	// This should be first
-	res, err := d.SelectOrInsert(abigai, &all,
-		Cond{"first_name", "=", "Abigail"},
-		Cond{"family_name", "=", "Disney"},
-	)
-	if err != nil {
-		t.Errorf("SelectOrInsertOne failed: %v", err)
-		return
-	}
-
-	showResult(t, res)
-	t.Logf("Got return: %+v", all)
-
-	if nil == all || 0 == len(all) {
-		t.Errorf("no data returned")
-		return
-	}
-
-	lastInsertID := all[0].ID
-
-	// second insert
-	res, err = d.SelectOrInsert(abigai, &all,
-		Cond{"first_name", "=", "Abigail"},
-		Cond{"family_name", "=", "Disney"},
-	)
-
-	if err != nil {
-		t.Errorf("SelectOrInsertOne failed: %v", err)
-		return
-	}
-	showResult(t, res)
-	t.Logf("Got return: %+v", all)
-
-	if nil == all || 0 == len(all) {
-		t.Errorf("no data returned")
-		return
-	}
-
-	if all[0].ID != lastInsertID {
-		t.Errorf("duplicated insert detected: %d <> %d", lastInsertID, all[0].ID)
-		return
-	}
-
-	// simple insert or not exist
-	res, err = d.InsertIfNotExists(
-		abigai,
-		Cond{"first_name", "=", "Abigail"},
-		Cond{"family_name", "=", "Disney"},
-	)
-	if err != nil {
-		t.Errorf("InsertIfNotExists failed")
-	} else {
-		showResult(t, res)
-		insertID, err := res.LastInsertId()
-		if err == nil && insertID != 0 {
-			t.Errorf("should NOT inserted, got insertID: %d", insertID)
-			return
-		}
-	}
-
-	return
 }
 
 func showResult(t *testing.T, res sql.Result) {
@@ -213,7 +129,7 @@ func TestQuery(t *testing.T) {
 	// read back
 	var result []*Disney
 	lastID, _ := res.LastInsertId()
-	err = db.Select(&result, Cond{"id", "=", lastID})
+	err = db.Select(&result, Condition("id", "=", lastID))
 	if err != nil {
 		t.Errorf("db.Select error: %v", err)
 		return
@@ -263,9 +179,9 @@ func TestQuery(t *testing.T) {
 	// select
 	err = db.Select(
 		&result,
-		Cond{"family_name", "<>", "Disney"},
-		Cond{"die_time", "=", nil}, // for MySQL NULL, should be "IS" or "IS NOT", but here er make some compatibility
-		Cond{"birth_date", ">=", time.Date(1910, 1, 1, 0, 0, 0, 0, time.UTC)},
+		Condition("family_name", "<>", "Disney"),
+		Condition("die_time", "=", nil), // for MySQL NULL, should be "IS" or "IS NOT", but here er make some compatibility
+		Condition("birth_date", ">=", time.Date(1910, 1, 1, 0, 0, 0, 0, time.UTC)),
 		Offset{1}, Limit{2},
 		Order{"id", "DESC"},
 	)
@@ -284,8 +200,8 @@ func TestQuery(t *testing.T) {
 	err = db.Select(
 		&result,
 		Or{
-			Cond{"first_name", "=", "Diane"},
-			Cond{"first_name", "=", "Walter"},
+			Condition("first_name", "=", "Diane"),
+			Condition("first_name", "=", "Walter"),
 		},
 	)
 	if err != nil {
@@ -307,8 +223,8 @@ func TestQuery(t *testing.T) {
 			"die_time": time.Date(2013, 9, 19, 0, 0, 0, 0, time.UTC),
 			"is_boss":  true,
 		},
-		Cond{"first_name", "=", "Diane"},
-		Cond{"family_name", "=", "Miller"},
+		Condition("first_name", "=", "Diane"),
+		Condition("family_name", "=", "Miller"),
 		Limit{1},
 	)
 	if err != nil {
@@ -328,8 +244,8 @@ func TestQuery(t *testing.T) {
 	err = db.Select(
 		&result,
 		And{
-			Cond{"first_name", "in", []string{"Diane", "Walter"}},
-			Cond{"update_timestamp", "!=", 0},
+			Condition("first_name", "in", []string{"Diane", "Walter"}),
+			Condition("update_timestamp", "!=", 0),
 		},
 	)
 	if err != nil {
@@ -343,7 +259,7 @@ func TestQuery(t *testing.T) {
 
 	err = db.Select(
 		&result,
-		Cond{"update_timestamp", "in", []int32{1, 2, 3}},
+		Condition("update_timestamp", "in", []int32{1, 2, 3}),
 	)
 	if err != nil {
 		t.Errorf("select with IN failed: %v", err)
@@ -353,9 +269,9 @@ func TestQuery(t *testing.T) {
 	// delete
 	res, err = db.Delete(
 		Disney{},
-		Cond{"first_name", "=", "Diane"},
-		Cond{"family_name", "=", "Miller"},
-		Cond{"die_time", "IS", nil},
+		Condition("first_name", "=", "Diane"),
+		Condition("family_name", "=", "Miller"),
+		Condition("die_time", "IS", nil),
 	)
 	if err != nil {
 		t.Errorf("Update failed: %v", err)
