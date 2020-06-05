@@ -12,7 +12,9 @@ import (
 // ========
 
 // Update execute UPDATE SQL statement with given structure and conditions
-func (d *DB) Update(prototype interface{}, fields map[string]interface{}, args ...interface{}) (sql.Result, error) {
+func (d *DB) Update(
+	prototype interface{}, fields map[string]interface{}, args ...interface{},
+) (sql.Result, error) {
 	if nil == d.db {
 		return nil, fmt.Errorf("nil *sqlx.DB")
 	}
