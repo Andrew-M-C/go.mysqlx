@@ -155,15 +155,19 @@ func (d *DB) Insert(v interface{}, opts ...Options) (result sql.Result, err erro
 		return nil, fmt.Errorf("empty table name for type %v", reflect.TypeOf(v))
 	}
 
-	err = d.checkAutoCreateTable(v, opt)
-	if err != nil {
-		return nil, err
-	}
-
 	// INSERT
 	query := fmt.Sprintf("INSERT INTO `%s` (%s) VALUES (%s)", opt.TableName, strings.Join(keys, ", "), strings.Join(values, ", "))
 	// log.Println(query)
 
+	if opt.DoNotExec {
+		err = newError(doNotExec, query)
+		return
+	}
+
+	err = d.checkAutoCreateTable(v, opt)
+	if err != nil {
+		return nil, err
+	}
 	result, err = d.db.Exec(query)
 	if err != nil {
 		err = newError(err.Error(), query)

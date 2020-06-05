@@ -94,11 +94,22 @@ type Field struct {
 
 // Options identifies options and parameters for a structure
 type Options struct {
-	TableName         string
-	TableDescption    string
-	Indexes           []Index
-	Uniques           []Unique
+	// TableName defines the table name of this object
+	TableName string
+	// TableDescption defines the description of the table, it is used in create table statement
+	TableDescption string
+	// Indexes defines the indexes of the table
+	Indexes []Index
+	// Uniques defines the uniques of the table
+	Uniques []Unique
+	// CreateTableParams defines additional variables in create table statements.
+	// There are three default variaments, which could be replaced:
+	// ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4
 	CreateTableParams map[string]string
+	// DoNotExec stop the actual database executing process if it is set as true. Instead, CURD
+	// functions would return an Error object with SQL query statement. This could used for troubleshot.
+	// Please use GetQueryFromError() function to get the query statement.
+	DoNotExec bool
 }
 
 // Offset is for MySQL offset statement

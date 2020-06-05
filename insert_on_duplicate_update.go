@@ -59,6 +59,9 @@ func (d *DB) InsertOnDuplicateKeyUpdate(
 		strings.Join(updateKV, ", "),
 	)
 	// log.Println(sql)
+	if opt.DoNotExec {
+		return nil, newError(doNotExec, sql)
+	}
 
 	err = d.checkAutoCreateTable(v, opt)
 	if err != nil {

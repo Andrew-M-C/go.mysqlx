@@ -78,6 +78,9 @@ func (d *DB) SelectOrInsert(insert interface{}, selectResult interface{}, conds 
 		parsedArgs.Opt.TableName, strings.Join(firstList, ", "), strings.Join(secondList, ", "), randomField, parsedArgs.Opt.TableName, strings.Join(thirdList, " AND "),
 	)
 	// log.Println(query)
+	if parsedArgs.Opt.DoNotExec {
+		return nil, newError(doNotExec, query)
+	}
 
 	// check table
 	err = d.checkAutoCreateTable(insert, parsedArgs.Opt)

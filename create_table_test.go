@@ -247,6 +247,8 @@ func TestVariousStruct(t *testing.T) {
 
 	// select
 	var arr []*VarTable
+	err = db.Select(&arr, line.Options(), Options{DoNotExec: true})
+	t.Logf("statement: %v", GetQueryFromError(err))
 	err = db.Select(&arr, line.Options())
 	if err != nil {
 		errorf("Select() error: %v", err)
@@ -263,6 +265,9 @@ func TestVariousStruct(t *testing.T) {
 	}
 
 	// delete
+	_, err = db.Delete(line, Condition("id", "=", id), Options{DoNotExec: true})
+	t.Logf("statement: %v", GetQueryFromError(err))
+	err = db.Select(&arr, line.Options())
 	res, err = db.Delete(
 		line,
 		Condition("id", "=", id),

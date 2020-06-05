@@ -108,15 +108,22 @@ func mergeOptions(v interface{}, opts ...Options) Options {
 		if "" != opts[0].TableDescption {
 			opt.TableDescption = opts[0].TableDescption
 		}
-		if opts[0].Indexes != nil && len(opts[0].Indexes) > 0 {
+		if len(opts[0].Indexes) > 0 {
 			opt.Indexes = opts[0].Indexes
 		}
-		if opts[0].Uniques != nil && len(opts[0].Uniques) > 0 {
+		if len(opts[0].Uniques) > 0 {
 			opt.Uniques = opts[0].Uniques
 		}
-		for k, v := range opts[0].CreateTableParams {
-			opt.CreateTableParams[k] = v
+		if len(opts[0].CreateTableParams) > 0 {
+			if nil == opt.CreateTableParams {
+				opt.CreateTableParams = opts[0].CreateTableParams
+			} else {
+				for k, v := range opts[0].CreateTableParams {
+					opt.CreateTableParams[k] = v
+				}
+			}
 		}
+		opt.DoNotExec = opts[0].DoNotExec
 	}
 	if nil == opt.Indexes {
 		opt.Indexes = make([]Index, 0)
@@ -427,6 +434,9 @@ func (d *DB) CreateTable(v interface{}, opts ...Options) error {
 
 	// if table not exists
 	if false == exists {
+		if opt.DoNotExec {
+			return newError(doNotExec, create)
+		}
 		_, err = d.db.Exec(create)
 		if err != nil {
 			return newError(err.Error(), create)
@@ -437,6 +447,9 @@ func (d *DB) CreateTable(v interface{}, opts ...Options) error {
 	}
 
 	// alter
+	if opt.DoNotExec {
+		return newError(doNotExec, strings.Join(alter, ";\n"))
+	}
 	for _, query := range alter {
 		_, err = d.db.Exec(query)
 		if err != nil {

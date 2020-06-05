@@ -79,12 +79,16 @@ func TestQuery(t *testing.T) {
 		return
 	}
 
+	err = db.CreateTable(User{}, Options{DoNotExec: true})
+	t.Logf("SQL: %s", GetQueryFromError(err))
 	err = db.CreateTable(User{})
 	if err != nil {
 		t.Errorf("Create User error: %v", err)
 		return
 	}
 
+	err = db.CreateTable(Disney{}, Options{DoNotExec: true})
+	t.Logf("SQL: %s", GetQueryFromError(err))
 	err = db.CreateTable(Disney{})
 	if err != nil {
 		t.Errorf("Create Disney error: %v", err)
@@ -119,6 +123,8 @@ func TestQuery(t *testing.T) {
 	t.Logf("Keys: %v", keys)
 	t.Logf("Vals: %v", values)
 
+	_, err = db.Insert(newDisney, Options{DoNotExec: true})
+	t.Logf("statement: %v", GetQueryFromError(err))
 	res, err := db.Insert(newDisney)
 	if err != nil {
 		t.Errorf("Insert Walter Disney error: %v", err)
@@ -257,6 +263,12 @@ func TestQuery(t *testing.T) {
 		return
 	}
 
+	err = db.Select(
+		&result,
+		Condition("update_timestamp", "in", []int32{1, 2, 3}),
+		Options{DoNotExec: true},
+	)
+	t.Logf("statement: %v", GetQueryFromError(err))
 	err = db.Select(
 		&result,
 		Condition("update_timestamp", "in", []int32{1, 2, 3}),

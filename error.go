@@ -4,6 +4,8 @@ import (
 	"fmt"
 )
 
+const doNotExec = "exec blocked in options"
+
 type sqlIntf interface {
 	Query() string
 }

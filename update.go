@@ -61,8 +61,12 @@ func (d *DB) Update(
 	if len(parsedArgs.CondList) > 0 {
 		condStr = "WHERE " + strings.Join(parsedArgs.CondList, " AND ")
 	}
+
 	query := fmt.Sprintf("UPDATE `%s` SET %s %s %s", opt.TableName, strings.Join(kv, ", "), condStr, limitStr)
 	// log.Println(query)
+	if parsedArgs.Opt.DoNotExec {
+		return nil, newError(doNotExec, query)
+	}
 
 	err = d.checkAutoCreateTable(prototype, parsedArgs.Opt)
 	if err != nil {
@@ -70,7 +74,12 @@ func (d *DB) Update(
 	}
 
 	// UPDATE
-	return d.db.Exec(query)
+	res, err := d.db.Exec(query)
+	if err != nil {
+		err = newError(err.Error(), query)
+		return nil, err
+	}
+	return res, err
 }
 
 func (d *DB) genUpdateKVs(prototype interface{}, fields map[string]interface{}) ([]string, error) {

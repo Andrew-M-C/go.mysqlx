@@ -148,6 +148,9 @@ func (d *DB) Select(dst interface{}, args ...interface{}) error {
 		fieldsStr, parsedArgs.Opt.TableName, condStr, orderStr, limitStr, offsetStr,
 	)
 	// log.Println("select query:", query)
+	if parsedArgs.Opt.DoNotExec {
+		return newError(doNotExec, query)
+	}
 
 	err = d.db.Select(dst, query)
 	if err != nil {

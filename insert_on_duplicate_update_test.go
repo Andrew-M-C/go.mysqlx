@@ -50,6 +50,16 @@ func TestInsertOnDuplicateKeyUpdate(t *testing.T) {
 
 	// insert on duplicate update
 	dept.Desc = "IT department"
+
+	_, err = db.InsertOnDuplicateKeyUpdate(
+		&dept,
+		map[string]interface{}{
+			"f_desc": dept.Desc,
+		},
+		Options{DoNotExec: true},
+	)
+	t.Logf("statement: %v", GetQueryFromError(err))
+
 	res, err = db.InsertOnDuplicateKeyUpdate(
 		&dept,
 		map[string]interface{}{
