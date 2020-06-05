@@ -86,5 +86,17 @@ func TestInsertOnDuplicateKeyUpdate(t *testing.T) {
 	}
 	t.Logf("reord updated as '%s'", depts[0].Desc)
 
+	// test raw statement
+	_, err = db.InsertOnDuplicateKeyUpdate(
+		&dept,
+		map[string]interface{}{
+			"f_id": RawStatement("`f_id`"),
+		},
+	)
+	if err != nil {
+		t.Errorf("InsertOnDuplicateKeyUpdate with raw statement error: %v", err)
+		return
+	}
+
 	return
 }

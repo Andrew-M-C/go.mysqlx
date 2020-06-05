@@ -3,7 +3,6 @@ package mysqlx
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"reflect"
 	"strings"
 )
@@ -59,7 +58,7 @@ func (d *DB) InsertOnDuplicateKeyUpdate(
 		strings.Join(keys, ", "), strings.Join(values, ", "),
 		strings.Join(updateKV, ", "),
 	)
-	log.Println(sql)
+	// log.Println(sql)
 
 	err = d.checkAutoCreateTable(v, opt)
 	if err != nil {
