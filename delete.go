@@ -62,5 +62,9 @@ func (d *DB) Delete(prototype interface{}, args ...interface{}) (sql.Result, err
 	)
 	// log.Println(query)
 
-	return d.db.Exec(query)
+	res, err := d.db.Exec(query)
+	if err != nil {
+		return res, newError(err.Error(), query)
+	}
+	return res, nil
 }

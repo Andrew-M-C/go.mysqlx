@@ -88,7 +88,7 @@ func (d *DB) SelectOrInsert(insert interface{}, selectResult interface{}, conds 
 	// exec first
 	res, err = d.db.Exec(query)
 	if err != nil {
-		return nil, err
+		return nil, newError(err.Error(), query)
 	}
 
 	if nil == selectResult {

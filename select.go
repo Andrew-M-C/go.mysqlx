@@ -149,5 +149,10 @@ func (d *DB) Select(dst interface{}, args ...interface{}) error {
 	)
 	// log.Println("select query:", query)
 
-	return d.db.Select(dst, query)
+	err = d.db.Select(dst, query)
+	if err != nil {
+		err = newError(err.Error(), query)
+		return err
+	}
+	return err
 }

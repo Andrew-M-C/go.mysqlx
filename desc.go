@@ -79,11 +79,12 @@ func (d *DB) ReadTableFields(table string) (ret []*Field, err error) {
 	var fields []*_Field
 	err = d.db.Select(&fields, query)
 	if err != nil {
-		return nil, err
+		return nil, newError(err.Error(), query)
 	}
 	if nil == fields || 0 == len(fields) {
 		// return make([]*Field, 0), nil
-		return nil, fmt.Errorf("Table '%s.%s' doesn't exist", database, table)
+		e := fmt.Sprintf("Table '%s.%s' doesn't exist", database, table)
+		return nil, newError(e, query)
 	}
 
 	ret = make([]*Field, 0, len(fields))
@@ -184,7 +185,7 @@ func (d *DB) ReadTableIndexes(table string) (map[string]*Index, map[string]*Uniq
 	query := fmt.Sprintf(_ReadTableIndexes, database, table)
 	err = d.db.Select(&indexes, query)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, newError(err.Error(), query)
 	}
 
 	indexMap := make(map[string]*Index)

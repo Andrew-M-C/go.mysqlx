@@ -429,7 +429,7 @@ func (d *DB) CreateTable(v interface{}, opts ...Options) error {
 	if false == exists {
 		_, err = d.db.Exec(create)
 		if err != nil {
-			return err
+			return newError(err.Error(), create)
 		}
 
 		d.createdTables.Store(opt.TableName, true)
@@ -440,7 +440,7 @@ func (d *DB) CreateTable(v interface{}, opts ...Options) error {
 	for _, query := range alter {
 		_, err = d.db.Exec(query)
 		if err != nil {
-			return err
+			return newError(err.Error(), strings.Join(alter, ";\n"))
 		}
 	}
 

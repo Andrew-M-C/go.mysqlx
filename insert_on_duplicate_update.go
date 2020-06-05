@@ -65,5 +65,10 @@ func (d *DB) InsertOnDuplicateKeyUpdate(
 		return nil, err
 	}
 
-	return d.db.Exec(sql)
+	result, err = d.db.Exec(sql)
+	if err != nil {
+		err = newError(err.Error(), sql)
+		return
+	}
+	return
 }

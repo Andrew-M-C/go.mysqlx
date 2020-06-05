@@ -163,7 +163,13 @@ func (d *DB) Insert(v interface{}, opts ...Options) (result sql.Result, err erro
 	// INSERT
 	query := fmt.Sprintf("INSERT INTO `%s` (%s) VALUES (%s)", opt.TableName, strings.Join(keys, ", "), strings.Join(values, ", "))
 	// log.Println(query)
-	return d.db.Exec(query)
+
+	result, err = d.db.Exec(query)
+	if err != nil {
+		err = newError(err.Error(), query)
+		return
+	}
+	return
 }
 
 func convNullStringToString(s sql.NullString, quote string) string {
