@@ -278,6 +278,22 @@ func TestQuery(t *testing.T) {
 		return
 	}
 
+	// select with like
+	result = nil
+	err = db.Select(
+		&result,
+		Like("full_name", []string{"", "Disney"}),
+	)
+	if err != nil {
+		t.Errorf("select with LIKE failed: %v", err)
+		t.Errorf("SQL: %v", GetQueryFromError(err))
+		return
+	}
+	t.Logf("select with LIKE result:")
+	for i, r := range result {
+		t.Logf("%02d - %+v", i, r)
+	}
+
 	// delete
 	res, err = db.Delete(
 		Disney{},
@@ -297,4 +313,66 @@ func TestQuery(t *testing.T) {
 	}
 	t.Logf("affected row(s): %d", affected)
 	return
+}
+
+func TestMultiConds(t *testing.T) {
+	var err error
+
+	d, err := getDB()
+	if err != nil {
+		t.Errorf("open failed: %v", err)
+		return
+	}
+
+	var res []*DateRecord
+	err = d.Select(
+		&res, And{
+			Condition("f_id", ">", 1),
+			Or{
+				And{
+					Condition("f_month", ">=", 6),
+					Condition("f_day", "<>", 0),
+				},
+				And{
+					Condition("f_month", ">", 6),
+					Condition("f_month", "<", 8),
+					Condition("f_day", "<>", 0),
+				},
+				And{
+					Condition("f_month", "<=", 9),
+					Condition("f_day", "<>", 0),
+					Condition("f_day", "<=", 20),
+				},
+			},
+		},
+		Options{DoNotExec: true},
+	)
+	t.Logf("error: %v", err)
+	t.Logf("multiple layer SQL: %v", GetQueryFromError(err))
+	return
+}
+
+// type DateRecord struct {
+// 	ID    int64 `db:"f_id"     mysqlx:"increment:true"`
+// 	Year  int32 `db:"f_year"`
+// 	Month int8  `db:"f_month"`
+// 	Day   int8  `db:"f_day"`
+// }
+
+type DateRecord struct {
+	ID          int64  `db:"id"            mysqlx:"increment:true"       comment:"自增 ID"`
+	BusinessID  int32  `db:"business_id"                                 comment:"集成商 ID"`
+	CommunityID int32  `db:"community_id"                                comment:"小区 ID"`
+	Topic       string `db:"topic"         mysqlx:"type:varchar(64)"     comment:"记录类别，合法值参见代码"`
+	Year        int    `db:"-"` // 年份，在数据库中不保存，但用于决定表名
+	Month       int8   `db:"f_month"                                       comment:"月份，合法值为 1-12"`
+	Day         int8   `db:"f_day"                                         comment:"日，合法值为 0-31，其中 0 表示这是一条月记录，否则是日记录"`
+	Count       int64  `db:"count"                                       comment:"统计结果"`
+	CreateSec   int64  `db:"create_sec"                                  comment:"记录时间"`
+}
+
+func (DateRecord) Options() Options {
+	return Options{
+		TableName: "t_date_record",
+	}
 }

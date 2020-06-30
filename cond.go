@@ -24,6 +24,26 @@ func Condition(param, operator string, value interface{}) *Cond {
 	}
 }
 
+// Like return Cond data with LIKE operator in function format
+func Like(param string, likeParts []string) *Cond {
+	if 0 == len(likeParts) {
+		return nil
+	}
+
+	c := &Cond{
+		Param:    param,
+		Operator: "LIKE",
+	}
+
+	parts := make([]string, 0, len(likeParts))
+	for _, p := range likeParts {
+		parts = append(parts, escapeLikeValueString(p))
+	}
+
+	c.Value = strings.Join(parts, "%")
+	return c
+}
+
 // parseCondIn is invoked by parseCond. This handles sutiations those the operator is "in".
 func (c *Cond) parseIn(fieldMap map[string]*Field) (field, operator, value string, err error) {
 	operator = "IN"
@@ -88,8 +108,18 @@ func (c *Cond) parse(fieldMap map[string]*Field) (field, operator, value string,
 	case "in", "IN":
 		return c.parseIn(fieldMap)
 	case "not in", "NOT IN":
-		field, operator, value, err = c.parseIn(fieldMap)
+		field, _, value, err = c.parseIn(fieldMap)
 		operator = "NOT IN"
+		return
+	case "LIKE", "like":
+		v, ok := c.Value.(string)
+		if false == ok {
+			err = fmt.Errorf("LIKE value should be raw string")
+			return
+		}
+		field = c.Param
+		operator = "LIKE"
+		value = "'" + v + "'"
 		return
 	default:
 		err = fmt.Errorf("invalid operator '%s'", c.Operator)
