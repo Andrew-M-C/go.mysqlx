@@ -260,7 +260,7 @@ func ReadStructFields(s interface{}) (ret []*Field, err error) {
 
 	switch t.Kind() {
 	case reflect.Ptr:
-		return ReadStructFields(t.Elem())
+		return ReadStructFields(v.Elem().Interface())
 	case reflect.Struct:
 		// OK, continue
 	default:
