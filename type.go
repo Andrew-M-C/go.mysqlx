@@ -88,6 +88,7 @@ type Field struct {
 	Default       string
 	Comment       string
 	AutoIncrement bool
+	OnUpdate      string
 	// private
 	statement string
 }

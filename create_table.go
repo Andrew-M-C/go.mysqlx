@@ -146,11 +146,15 @@ func (d *DB) mysqlCreateTableStatement(fields []*Field, opt *Options) (string, e
 		if false == f.Nullable {
 			null = "NOT NULL"
 		}
+		onUpdate := ""
+		if f.OnUpdate != "" {
+			onUpdate = fmt.Sprintf("ON UPDATE %s", f.OnUpdate)
+		}
 		if f.AutoIncrement {
 			autoIncField = f
 			f.statement = fmt.Sprintf("`%s` %s %s AUTO_INCREMENT COMMENT '%s'", f.Name, f.Type, null, comment)
 		} else {
-			f.statement = fmt.Sprintf("`%s` %s %s DEFAULT %s COMMENT '%s'", f.Name, f.Type, null, f.Default, comment)
+			f.statement = fmt.Sprintf("`%s` %s %s DEFAULT %s %s COMMENT '%s'", f.Name, f.Type, null, f.Default, onUpdate, comment)
 		}
 
 		// log.Printf("statement: %s\n", f.statement)
@@ -268,7 +272,17 @@ func (d *DB) mysqlAlterTableFieldsStatements(fields []*Field, fieldsInDB []*Fiel
 			prevField, _ := prevFieldMap[f.Name]
 			if prevField == nil {
 				// this is first column
-				statement = fmt.Sprintf("ALTER TABLE `%s` ADD COLUMN `%s` %s %s DEFAULT %s COMMENT '%s' FIRST", opt.TableName, f.Name, f.Type, null, f.Default, comment)
+				if f.OnUpdate == "" {
+					statement = fmt.Sprintf(
+						"ALTER TABLE `%s` ADD COLUMN `%s` %s %s DEFAULT %s COMMENT '%s' FIRST",
+						opt.TableName, f.Name, f.Type, null, f.Default, comment,
+					)
+				} else {
+					statement = fmt.Sprintf(
+						"ALTER TABLE `%s` ADD COLUMN `%s` %s %s DEFAULT %s ON UPDATE %s COMMENT '%s' FIRST",
+						opt.TableName, f.Name, f.Type, null, f.Default, f.OnUpdate, comment,
+					)
+				}
 
 			} else {
 				_, prevExistsInDB := fieldsInDBMap[prevField.Name]
@@ -280,7 +294,18 @@ func (d *DB) mysqlAlterTableFieldsStatements(fields []*Field, fieldsInDB []*Fiel
 					}
 				}
 
-				statement = fmt.Sprintf("ALTER TABLE `%s` ADD COLUMN `%s` %s %s DEFAULT %s COMMENT '%s' AFTER `%s`", opt.TableName, f.Name, f.Type, null, f.Default, comment, prevField.Name)
+				if f.OnUpdate == "" {
+					statement = fmt.Sprintf(
+						"ALTER TABLE `%s` ADD COLUMN `%s` %s %s DEFAULT %s COMMENT '%s' AFTER `%s`",
+						opt.TableName, f.Name, f.Type, null, f.Default, comment, prevField.Name,
+					)
+				} else {
+					statement = fmt.Sprintf(
+						"ALTER TABLE `%s` ADD COLUMN `%s` %s %s DEFAULT %s ON UPDATE %s COMMENT '%s' AFTER `%s`",
+						opt.TableName, f.Name, f.Type, null, f.Default, f.OnUpdate, comment, prevField.Name,
+					)
+				}
+
 			}
 
 			// log.Println(statement)
@@ -492,6 +517,7 @@ func readStructFields(t reflect.Type, v reflect.Value) (ret []*Field, err error)
 		fieldDflt := ""
 		fieldIncr := false
 		fieldComt := ""
+		fieldOnUpdate := ""
 
 		if fieldName == "-" {
 			continue
@@ -570,12 +596,21 @@ func readStructFields(t reflect.Type, v reflect.Value) (ret []*Field, err error)
 			fieldDflt = getFieldDefault(&tf, _DateTime, fieldNull, fieldType)
 			fieldIncr = getFieldAutoIncrement(&tf, false)
 			fieldComt = getFieldComment(&tf)
+			fieldOnUpdate = getFieldOnUpdate(&tf)
+		case sql.NullTime:
+			fieldType = getFieldType(&tf, "datetime")
+			fieldNull = getFieldNullable(&tf, true)
+			fieldDflt = getFieldDefault(&tf, _DateTime, fieldNull, fieldType)
+			fieldIncr = getFieldAutoIncrement(&tf, false)
+			fieldComt = getFieldComment(&tf)
+			fieldOnUpdate = getFieldOnUpdate(&tf)
 		case time.Time:
 			fieldType = getFieldType(&tf, "datetime")
 			fieldNull = getFieldNullable(&tf, false)
 			fieldDflt = getFieldDefault(&tf, _DateTime, fieldNull, fieldType)
 			fieldIncr = getFieldAutoIncrement(&tf, false)
 			fieldComt = getFieldComment(&tf)
+			fieldOnUpdate = getFieldOnUpdate(&tf)
 		default:
 			if tf.Type.Kind() == reflect.Struct {
 				// log.Println("Embedded struct: ", tf.Type)
@@ -596,6 +631,7 @@ func readStructFields(t reflect.Type, v reflect.Value) (ret []*Field, err error)
 			Default:       fieldDflt,
 			AutoIncrement: fieldIncr,
 			Comment:       fieldComt,
+			OnUpdate:      fieldOnUpdate,
 		})
 	}
 	return
@@ -647,6 +683,11 @@ func getFieldAutoIncrement(tf *reflect.StructField, dft bool) bool {
 	}
 }
 
+func getFieldOnUpdate(tf *reflect.StructField) string {
+	n := _readMysqlxTag(tf, "onupdate")
+	return n
+}
+
 func getFieldDefault(tf *reflect.StructField, category category, nullable bool, fieldTypes ...string) string {
 	n := _readMysqlxTag(tf, "default")
 	if n != "" {
@@ -654,6 +695,9 @@ func getFieldDefault(tf *reflect.StructField, category category, nullable bool, 
 		case _String:
 			return "'" + strings.Replace(n, "'", "\\'", -1) + "'"
 		case _DateTime:
+			if strings.Contains(strings.ToUpper(n), "TIMESTAMP") {
+				return n
+			}
 			if n == "0" {
 				return "0"
 			}

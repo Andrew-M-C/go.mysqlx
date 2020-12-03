@@ -286,6 +286,9 @@ func TestVariousStruct(t *testing.T) {
 		return
 	}
 
+	// TableWithTimestamp
+	testTableWithTimestamp(t, db)
+
 	return
 }
 
@@ -308,4 +311,81 @@ func (s *VarTable) Options() Options {
 			"ROW_FORMAT": "DYNAMIC",
 		},
 	}
+}
+
+type TableWithTimestamp struct {
+	ID         int32        `db:"id"              mysqlx:"increment:true"`
+	Key        string       `db:"key"             mysqlx:"type:varchar(256)"`
+	Value      string       `db:"value"           mysqlx:"type:varchar(1024)"`
+	CreateTime time.Time    `db:"create_time"     mysqlx:"type:datetime"`
+	UpdateTime time.Time    `db:"update_time"     mysqlx:"type:datetime onupdate:CURRENT_TIMESTAMP"`
+	DeleteTime sql.NullTime `db:"delete_time"     mysqlx:"type:datetime"`
+}
+
+func (s *TableWithTimestamp) Options() Options {
+	if s == nil {
+		panic("nil object")
+	}
+	return Options{
+		TableName: "t_with_timestamp",
+	}
+}
+
+func testTableWithTimestamp(t *testing.T, db *DB) {
+	db.Sqlx().Exec("DROP TABLE `t_with_timestamp`")
+
+	createTime := time.Now().UTC()
+	s := TableWithTimestamp{
+		Key:        "someKey",
+		Value:      "someValue",
+		CreateTime: createTime,
+		UpdateTime: createTime,
+		// DeleteTime: sql.NullTime{Valid: false},
+	}
+	res, err := db.Insert(&s)
+	if err != nil {
+		t.Errorf("db.Insert failed: %v", err)
+		return
+	}
+
+	insertedID, _ := res.LastInsertId()
+	time.Sleep(time.Second)
+
+	_, err = db.Update(&s,
+		map[string]interface{}{
+			"value": "newSomeValue",
+		},
+		Condition("id", "=", insertedID),
+	)
+	if err != nil {
+		t.Errorf("db.Update error: %v", err)
+		return
+	}
+
+	var records []*TableWithTimestamp
+	err = db.Select(&records,
+		Condition("id", "=", insertedID),
+	)
+	if err != nil {
+		t.Errorf("db.Select error: %v", err)
+		return
+	}
+	if 0 == len(records) {
+		t.Errorf("no records selected")
+		return
+	}
+
+	r := records[0]
+	t.Logf("expected tm: %v", s.CreateTime)
+	t.Logf("create time: %v", r.CreateTime)
+	t.Logf("update Time: %v", r.UpdateTime)
+
+	if r.UpdateTime.Sub(r.CreateTime) >= time.Second {
+		t.Logf("check update time OK")
+	} else {
+		t.Errorf("unexpected update time")
+		return
+	}
+
+	return
 }

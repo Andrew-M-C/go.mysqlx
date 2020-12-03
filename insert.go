@@ -93,6 +93,13 @@ func (d *DB) InsertFields(s interface{}, backQuoted bool) (keys []string, values
 			} else {
 				val = "NULL"
 			}
+		case sql.NullTime:
+			nt := intf.(sql.NullTime)
+			if nt.Valid {
+				val = convTimeToString(nt.Time, fieldMap, fieldName)
+			} else {
+				val = "NULL"
+			}
 		case time.Time:
 			val = convTimeToString(intf.(time.Time), fieldMap, fieldName)
 		default:
