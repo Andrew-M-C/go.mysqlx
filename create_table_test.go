@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/go-sql-driver/mysql"
 )
 
 func init() {
@@ -314,12 +316,12 @@ func (s *VarTable) Options() Options {
 }
 
 type TableWithTimestamp struct {
-	ID         int32        `db:"id"              mysqlx:"increment:true"`
-	Key        string       `db:"key"             mysqlx:"type:varchar(256)"`
-	Value      string       `db:"value"           mysqlx:"type:varchar(1024)"`
-	CreateTime time.Time    `db:"create_time"     mysqlx:"type:datetime"`
-	UpdateTime time.Time    `db:"update_time"     mysqlx:"type:datetime onupdate:CURRENT_TIMESTAMP"`
-	DeleteTime sql.NullTime `db:"delete_time"     mysqlx:"type:datetime"`
+	ID         int32          `db:"id"              mysqlx:"increment:true"`
+	Key        string         `db:"key"             mysqlx:"type:varchar(256)"`
+	Value      string         `db:"value"           mysqlx:"type:varchar(1024)"`
+	CreateTime time.Time      `db:"create_time"     mysqlx:"type:datetime"`
+	UpdateTime mysql.NullTime `db:"update_time"     mysqlx:"type:datetime onupdate:CURRENT_TIMESTAMP"`
+	DeleteTime sql.NullTime   `db:"delete_time"     mysqlx:"type:datetime"`
 }
 
 func (s *TableWithTimestamp) Options() Options {
@@ -339,8 +341,8 @@ func testTableWithTimestamp(t *testing.T, db *DB) {
 		Key:        "someKey",
 		Value:      "someValue",
 		CreateTime: createTime,
-		UpdateTime: createTime,
-		// DeleteTime: sql.NullTime{Valid: false},
+		UpdateTime: mysql.NullTime{Valid: true, Time: createTime},
+		DeleteTime: sql.NullTime{Valid: false},
 	}
 	res, err := db.Insert(&s)
 	if err != nil {
@@ -380,7 +382,7 @@ func testTableWithTimestamp(t *testing.T, db *DB) {
 	t.Logf("create time: %v", r.CreateTime)
 	t.Logf("update Time: %v", r.UpdateTime)
 
-	if r.UpdateTime.Sub(r.CreateTime) >= time.Second {
+	if r.UpdateTime.Time.Sub(r.CreateTime) >= time.Second {
 		t.Logf("check update time OK")
 	} else {
 		t.Errorf("unexpected update time")
