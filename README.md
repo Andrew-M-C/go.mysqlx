@@ -2,7 +2,7 @@
 
 [![Build status](https://travis-ci.org/Andrew-M-C/go.mysqlx.svg?branch=master)](https://travis-ci.org/Andrew-M-C/go.mysqlx)
 [![report](https://goreportcard.com/badge/github.com/Andrew-M-C/go.mysqlx)](https://goreportcard.com/report/github.com/Andrew-M-C/go.mysqlx)
-[![Latest](https://img.shields.io/badge/latest-v0.2.0-orange.svg)](https://github.com/Andrew-M-C/go.mysqlx/tree/v0.2.0)
+[![Latest](https://img.shields.io/badge/latest-v0.3.0-orange.svg)](https://github.com/Andrew-M-C/go.mysqlx/tree/v0.3.0)
 [![License](https://img.shields.io/badge/license-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
 <details>
@@ -13,23 +13,24 @@
 
 ## Supported Go version
 
-- `Go 1.11`
-- `Go 1.12`
 - `Go 1.13`
-
-## Usage
-
-`// TODO`
+- `Go 1.14`
+- `Go 1.15`
 
 ## Supported MySQL data types
 
 - Signed Integers:
   - `bigint(n)`, `int(n)`, `smallint(n)`, `tinyint(n)`
 - Unsigned Integers:
-  - `bigint(n) unsigned`: Should be configured as `ubigint(n)`
-  - `int(n) unsigned`: Should be configured as `uint(n)`
-  - `smallint(n) unsigned`: Should be configured as `usmallint(n)`
-  - `tinyint(n) unsigned`: Should be configured as `utinyint(n)`
+  - `bigint(n) unsigned`: Should be configured as `ubigint(n)` in struct tag
+  - `int(n) unsigned`: Should be configured as `uint(n)` in struct tag
+  - `smallint(n) unsigned`: Should be configured as `usmallint(n)` in struct tag
+  - `tinyint(n) unsigned`: Should be configured as `utinyint(n)` in struct tag
+- Boolean:
+  - `BOOL`
+- String:
+  - `varchar(n)`
+  - `char(n)`
 - Date / Time Types:
   - `timestamp`
   - `datetime`, `datetime(n)`
