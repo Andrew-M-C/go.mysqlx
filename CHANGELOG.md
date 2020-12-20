@@ -14,3 +14,14 @@
 ## v0.3.0
 
 - Add `Condition()` and `Statement()` to generate `Cond` data type.
+
+## Currently Developing
+
+- Supports customizing options in creating table.
+- Add Condition() function to replace the direct using of Cond{} struct.
+- Add InsertOnDuplicateKeyUpdate() to support `ON DUPLICATE KEY UPDATE ...` operation.
+- Add DoNotExec option. This is quite useful for troubleshoting or debugging `mysqlx`.
+- Add InsertMany() to support batch records inserting.
+- Support LIKE in Cond{} by Like() function.
+- Support `ON UPDATE CURRENT_TIMESTAMP` when creating table.
+- Cancel support to go 1.12!
