@@ -15,9 +15,12 @@ import (
 func (d *xdb) Update(
 	prototype interface{}, fields map[string]interface{}, args ...interface{},
 ) (sql.Result, error) {
-	if nil == d.db {
-		return nil, fmt.Errorf("nil *sqlx.DB")
-	}
+	return d.update(d.db, prototype, fields, args...)
+}
+
+func (d *xdb) update(
+	obj sqlObj, prototype interface{}, fields map[string]interface{}, args ...interface{},
+) (sql.Result, error) {
 	if nil == fields || 0 == len(fields) {
 		return nil, fmt.Errorf("nil fields")
 	}
@@ -74,7 +77,7 @@ func (d *xdb) Update(
 	}
 
 	// UPDATE
-	res, err := d.db.Exec(query)
+	res, err := obj.Exec(query)
 	if err != nil {
 		err = newError(err.Error(), query)
 		return nil, err

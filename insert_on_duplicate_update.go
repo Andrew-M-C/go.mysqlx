@@ -14,9 +14,12 @@ import (
 func (d *xdb) InsertOnDuplicateKeyUpdate(
 	v interface{}, updates map[string]interface{}, opts ...Options,
 ) (result sql.Result, err error) {
-	if nil == d.db {
-		return nil, fmt.Errorf("nil *sqlx.DB")
-	}
+	return d.insertOnDuplicateKeyUpdate(d.db, v, updates, opts...)
+}
+
+func (d *xdb) insertOnDuplicateKeyUpdate(
+	obj sqlObj, v interface{}, updates map[string]interface{}, opts ...Options,
+) (result sql.Result, err error) {
 
 	// Should be *Xxx or Xxx
 	ty := reflect.TypeOf(v)
@@ -70,7 +73,7 @@ func (d *xdb) InsertOnDuplicateKeyUpdate(
 		return nil, err
 	}
 
-	result, err = d.db.Exec(sql)
+	result, err = obj.Exec(sql)
 	if err != nil {
 		err = newError(err.Error(), sql)
 		return
@@ -82,9 +85,12 @@ func (d *xdb) InsertOnDuplicateKeyUpdate(
 func (d *xdb) InsertManyOnDuplicateKeyUpdate(
 	records interface{}, updates map[string]interface{}, opts ...Options,
 ) (result sql.Result, err error) {
-	if nil == d.db {
-		return nil, fmt.Errorf("nil *sqlx.DB")
-	}
+	return d.insertManyOnDuplicateKeyUpdate(d.db, records, updates, opts...)
+}
+
+func (d *xdb) insertManyOnDuplicateKeyUpdate(
+	obj sqlObj, records interface{}, updates map[string]interface{}, opts ...Options,
+) (result sql.Result, err error) {
 
 	// records could be *[]*Xxx, []*Xxx, *[]Xxx, []Xxx
 
@@ -185,7 +191,7 @@ func (d *xdb) InsertManyOnDuplicateKeyUpdate(
 	if err != nil {
 		return nil, err
 	}
-	result, err = d.db.Exec(query)
+	result, err = obj.Exec(query)
 	if err != nil {
 		err = newError(err.Error(), query)
 		return

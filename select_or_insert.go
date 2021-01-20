@@ -10,10 +10,15 @@ import (
 // ========
 
 // SelectOrInsert executes update-if-not-exists statement
-func (d *xdb) SelectOrInsert(insert interface{}, selectResult interface{}, conds ...interface{}) (res sql.Result, err error) {
-	if nil == d.db {
-		return nil, fmt.Errorf("mysqlx not initialized")
-	}
+func (d *xdb) SelectOrInsert(
+	insert interface{}, selectResult interface{}, conds ...interface{},
+) (res sql.Result, err error) {
+	return d.selectOrInsert(d.db, insert, selectResult, conds...)
+}
+
+func (d *xdb) selectOrInsert(
+	obj sqlObj, insert interface{}, selectResult interface{}, conds ...interface{},
+) (res sql.Result, err error) {
 
 	// Should be Xxx or *Xxx
 	ty := reflect.TypeOf(insert)
@@ -89,7 +94,7 @@ func (d *xdb) SelectOrInsert(insert interface{}, selectResult interface{}, conds
 	}
 
 	// exec first
-	res, err = d.db.Exec(query)
+	res, err = obj.Exec(query)
 	if err != nil {
 		return nil, newError(err.Error(), query)
 	}
@@ -115,7 +120,7 @@ func (d *xdb) SelectOrInsert(insert interface{}, selectResult interface{}, conds
 	}
 
 	// log.Println(query)
-	return res, d.db.Select(selectResult, query)
+	return res, obj.Select(selectResult, query)
 }
 
 // ========

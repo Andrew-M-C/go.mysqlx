@@ -11,10 +11,10 @@ import (
 
 // Delete executes SQL DELETE statement with given conditions
 func (d *xdb) Delete(prototype interface{}, args ...interface{}) (sql.Result, error) {
-	if nil == d.db {
-		return nil, fmt.Errorf("mysqlx not initialized")
-	}
+	return d.delete(d.db, prototype, args...)
+}
 
+func (d *xdb) delete(obj sqlObj, prototype interface{}, args ...interface{}) (sql.Result, error) {
 	// Should be Xxx or *Xxx
 	ty := reflect.TypeOf(prototype)
 	va := reflect.ValueOf(prototype)
@@ -65,7 +65,7 @@ func (d *xdb) Delete(prototype interface{}, args ...interface{}) (sql.Result, er
 		return nil, err
 	}
 
-	res, err := d.db.Exec(query)
+	res, err := obj.Exec(query)
 	if err != nil {
 		return res, newError(err.Error(), query)
 	}

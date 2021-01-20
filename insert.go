@@ -133,10 +133,10 @@ func (d *xdb) InsertFields(s interface{}, backQuoted bool) (keys []string, value
 
 // Insert insert a given structure. auto-increment fields will be ignored
 func (d *xdb) Insert(v interface{}, opts ...Options) (result sql.Result, err error) {
-	if nil == d.db {
-		return nil, fmt.Errorf("nil *sqlx.DB")
-	}
+	return d.insert(d.db, v, opts...)
+}
 
+func (d *xdb) insert(obj sqlObj, v interface{}, opts ...Options) (result sql.Result, err error) {
 	// Should be *Xxx or Xxx
 	ty := reflect.TypeOf(v)
 	va := reflect.ValueOf(v)
@@ -175,7 +175,7 @@ func (d *xdb) Insert(v interface{}, opts ...Options) (result sql.Result, err err
 	if err != nil {
 		return nil, err
 	}
-	result, err = d.db.Exec(query)
+	result, err = obj.Exec(query)
 	if err != nil {
 		err = newError(err.Error(), query)
 		return

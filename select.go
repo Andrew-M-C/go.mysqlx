@@ -80,9 +80,10 @@ func (d *xdb) getIncrementField(prototype interface{}) (field *Field, err error)
 
 // Select execute a SQL select statement
 func (d *xdb) Select(dst interface{}, args ...interface{}) error {
-	if nil == d.db {
-		return fmt.Errorf("mysqlx not initialized")
-	}
+	return d.selectFunc(d.db, dst, args...)
+}
+
+func (d *xdb) selectFunc(obj sqlObj, dst interface{}, args ...interface{}) error {
 
 	// Should be *[]Xxx or *[]*Xxx
 	ty := reflect.TypeOf(dst)
@@ -152,7 +153,7 @@ func (d *xdb) Select(dst interface{}, args ...interface{}) error {
 		return newError(doNotExec, query)
 	}
 
-	err = d.db.Select(dst, query)
+	err = obj.Select(dst, query)
 	if err != nil {
 		err = newError(err.Error(), query)
 		return err

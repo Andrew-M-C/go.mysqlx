@@ -21,6 +21,11 @@ type dbInfo struct {
 	Name sql.NullString `db:"database()"`
 }
 
+type sqlObj interface {
+	Exec(query string, args ...interface{}) (sql.Result, error)
+	Select(dest interface{}, query string, args ...interface{}) error
+}
+
 // xdb is the main structure for mysqlx
 type xdb struct {
 	db    *sqlx.DB

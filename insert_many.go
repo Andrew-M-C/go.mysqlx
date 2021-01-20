@@ -13,10 +13,10 @@ import (
 // InsertMany insert multiple records into table. If additional option with table name is not given,
 // mysqlx will use the FIRST table name in records for all.
 func (d *xdb) InsertMany(records interface{}, opts ...Options) (result sql.Result, err error) {
-	if nil == d.db {
-		return nil, fmt.Errorf("mysqlx not initialized")
-	}
+	return d.insertMany(d.db, records, opts...)
+}
 
+func (d *xdb) insertMany(obj sqlObj, records interface{}, opts ...Options) (result sql.Result, err error) {
 	// records could be *[]*Xxx, []*Xxx, *[]Xxx, []Xxx
 
 	// firstly, get []*Xxx or []Xxx
@@ -97,7 +97,7 @@ func (d *xdb) InsertMany(records interface{}, opts ...Options) (result sql.Resul
 	if err != nil {
 		return nil, err
 	}
-	result, err = d.db.Exec(query)
+	result, err = obj.Exec(query)
 	if err != nil {
 		err = newError(err.Error(), query)
 		return
