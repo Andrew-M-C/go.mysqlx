@@ -12,7 +12,7 @@ import (
 
 // InsertMany insert multiple records into table. If additional option with table name is not given,
 // mysqlx will use the FIRST table name in records for all.
-func (d *DB) InsertMany(records interface{}, opts ...Options) (result sql.Result, err error) {
+func (d *xdb) InsertMany(records interface{}, opts ...Options) (result sql.Result, err error) {
 	if nil == d.db {
 		return nil, fmt.Errorf("mysqlx not initialized")
 	}

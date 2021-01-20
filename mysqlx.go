@@ -4,9 +4,11 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"sync"
 	"sync/atomic"
 	"time"
 
+	atomicbool "github.com/Andrew-M-C/go.atomicbool"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 )
@@ -19,18 +21,39 @@ type dbInfo struct {
 	Name sql.NullString `db:"database()"`
 }
 
+// xdb is the main structure for mysqlx
+type xdb struct {
+	db    *sqlx.DB
+	param Param
+
+	// keep alive routine status
+	shouldKeepAlive int32
+	isKeepingAlive  int32
+
+	// interface field buffers
+	bufferedFields       sync.Map // []*Field
+	bufferedFieldMaps    sync.Map // map[string]*Field
+	bufferedSelectFields sync.Map // []string
+	bufferedIncrField    sync.Map // *Field
+
+	// stores created tables
+	autoCreateTable atomicbool.B
+	createdTables   sync.Map // bool
+}
+
 // Database returns database name in DB
-func (d *DB) Database() string {
+func (d *xdb) Database() string {
 	return d.param.DBName
 }
 
-// New initialize a *DB object with a given *sqlx.DB, which should be connect a certain database.
-func New(db *sqlx.DB) (ret *DB, err error) {
+// New initialize a DB object with a given *sqlx.DB, which should be connect a certain database.
+func New(db *sqlx.DB) (DB, error) {
 	if nil == db {
 		return nil, fmt.Errorf("nil *sqlx.DB")
 	}
 
 	// check whether db was connected to a certain databases
+	var err error
 	var dbList []dbInfo
 	err = db.Select(&dbList, "SELECT database()")
 	if err != nil {
@@ -43,14 +66,15 @@ func New(db *sqlx.DB) (ret *DB, err error) {
 		return nil, fmt.Errorf("sqlx is not using any database")
 	}
 
-	ret = &DB{}
+	ret := &xdb{}
 	ret.db = db
 	ret.param.DBName = dbList[0].Name.String
-	return
+	return ret, nil
 }
 
-// Open initialize a *DB object with a valid *sqlx.DB
-func Open(param Param) (ret *DB, err error) {
+// Open initialize a *xdb object with a valid *sqlx.DB
+func Open(param Param) (DB, error) {
+	var err error
 	// check param
 	if "" == param.Host {
 		param.Host = "localhost"
@@ -67,7 +91,7 @@ func Open(param Param) (ret *DB, err error) {
 	// param.User = strings.Replace(param.User, "'", "\\'", -1)
 	// param.Pass = strings.Replace(param.Pass, "'", "\\'", -1)
 
-	ret = &DB{
+	ret := &xdb{
 		param: param,
 	}
 
@@ -93,6 +117,7 @@ func Open(param Param) (ret *DB, err error) {
 	var dbList []dbInfo
 	err = ret.db.Select(&dbList, "SELECT database()")
 	if err != nil {
+		err = fmt.Errorf("db.Select error: %w", err)
 		return nil, err
 	}
 	if nil == dbList || 0 == len(dbList) {
@@ -103,10 +128,10 @@ func Open(param Param) (ret *DB, err error) {
 	}
 
 	ret.db.SetMaxIdleConns(5)
-	return
+	return ret, nil
 }
 
-func keepAlive(d *DB) {
+func keepAlive(d *xdb) {
 	atomic.StoreInt32(&d.isKeepingAlive, 1)
 	defer atomic.StoreInt32(&d.isKeepingAlive, 0)
 
@@ -129,12 +154,12 @@ func keepAlive(d *DB) {
 }
 
 // Sqlx return the *sqlx.DB object
-func (d *DB) Sqlx() *sqlx.DB {
+func (d *xdb) Sqlx() *sqlx.DB {
 	return d.db
 }
 
 // KeepAlive automatically keeps alive with database
-func (d *DB) KeepAlive() {
+func (d *xdb) KeepAlive() {
 	isKeepingAlive := atomic.LoadInt32(&d.isKeepingAlive)
 	if isKeepingAlive > 0 {
 		return
@@ -146,6 +171,6 @@ func (d *DB) KeepAlive() {
 }
 
 // StopKeepAlive stops the keep-alive operation
-func (d *DB) StopKeepAlive() {
+func (d *xdb) StopKeepAlive() {
 	atomic.StoreInt32(&d.shouldKeepAlive, 0)
 }

@@ -10,7 +10,7 @@ import (
 // ========
 
 // Delete executes SQL DELETE statement with given conditions
-func (d *DB) Delete(prototype interface{}, args ...interface{}) (sql.Result, error) {
+func (d *xdb) Delete(prototype interface{}, args ...interface{}) (sql.Result, error) {
 	if nil == d.db {
 		return nil, fmt.Errorf("mysqlx not initialized")
 	}

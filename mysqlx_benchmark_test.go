@@ -46,7 +46,7 @@ var (
 
 const cDataLines = 100000
 
-func prepareData(d *DB) {
+func prepareData(d DB) {
 	// insert data for testing
 	if !lcDataInserted.CompareAndSwap(false, true) {
 		return

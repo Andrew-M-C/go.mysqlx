@@ -35,7 +35,7 @@ func convFieldListToMap(list []*Field) map[string]*Field {
 }
 
 // MustCreateTable is same as CreateTable. But is panics if error.
-func (d *DB) MustCreateTable(v interface{}, opts ...Options) {
+func (d *xdb) MustCreateTable(v interface{}, opts ...Options) {
 	err := d.CreateTable(v, opts...)
 	if err != nil {
 		panic(err)
@@ -52,11 +52,11 @@ func (d *DB) MustCreateTable(v interface{}, opts ...Options) {
 // and cached. Then mysqlx.DB will not check into MySQL DB again.
 //
 // Note 2: auto-table-creation will NOT be activated in Select() function!
-func (d *DB) AutoCreateTable() {
+func (d *xdb) AutoCreateTable() {
 	d.autoCreateTable.Store(true)
 }
 
-func (d *DB) checkAutoCreateTable(v interface{}, opt Options) error {
+func (d *xdb) checkAutoCreateTable(v interface{}, opt Options) error {
 	if false == d.autoCreateTable.Load() {
 		return nil
 	}
@@ -134,7 +134,7 @@ func mergeOptions(v interface{}, opts ...Options) Options {
 	return opt
 }
 
-func (d *DB) mysqlCreateTableStatement(fields []*Field, opt *Options) (string, error) {
+func (d *xdb) mysqlCreateTableStatement(fields []*Field, opt *Options) (string, error) {
 	// create table
 	var autoIncField *Field
 	statements := make([]string, 0, len(fields)+len(opt.Indexes)+len(opt.Uniques)+1)
@@ -238,7 +238,7 @@ func (d *DB) mysqlCreateTableStatement(fields []*Field, opt *Options) (string, e
 	return final, nil
 }
 
-func (d *DB) mysqlAlterTableFieldsStatements(fields []*Field, fieldsInDB []*Field, opt *Options) (ret []string, err error) {
+func (d *xdb) mysqlAlterTableFieldsStatements(fields []*Field, fieldsInDB []*Field, opt *Options) (ret []string, err error) {
 	ret = []string{}
 	prevFieldMap := make(map[string]*Field) // used for AFTER section in ALTER statements
 	var prevField *Field
@@ -323,7 +323,7 @@ func (d *DB) mysqlAlterTableFieldsStatements(fields []*Field, fieldsInDB []*Fiel
 	return ret, nil
 }
 
-func (d *DB) mysqlAlterTableIndexUniquesStatements(opt *Options) (ret []string, err error) {
+func (d *xdb) mysqlAlterTableIndexUniquesStatements(opt *Options) (ret []string, err error) {
 	ret = []string{}
 	// read index and uniques
 	indexInDB, uniqInDB, err := d.ReadTableIndexes(opt.TableName)
@@ -375,7 +375,7 @@ func (d *DB) mysqlAlterTableIndexUniquesStatements(opt *Options) (ret []string, 
 // string slice would be returned. Otherwise, a string slice with 'ALTER TABLE ...' statements would be returned.
 //
 // The returned exists identifies if the table exists in database.
-func (d *DB) CreateOrAlterTableStatements(v interface{}, opts ...Options) (exists bool, statements []string, err error) {
+func (d *xdb) CreateOrAlterTableStatements(v interface{}, opts ...Options) (exists bool, statements []string, err error) {
 	exists, create, alter, _, err := d.createAndAlterTableStatements(v, opts...)
 	if err != nil {
 		return
@@ -388,7 +388,7 @@ func (d *DB) CreateOrAlterTableStatements(v interface{}, opts ...Options) (exist
 	return
 }
 
-func (d *DB) createAndAlterTableStatements(v interface{}, opts ...Options) (exists bool, create string, alter []string, opt Options, err error) {
+func (d *xdb) createAndAlterTableStatements(v interface{}, opts ...Options) (exists bool, create string, alter []string, opt Options, err error) {
 	if nil == d.db {
 		err = fmt.Errorf("mysqlx not initialized")
 		return
@@ -451,7 +451,7 @@ func (d *DB) createAndAlterTableStatements(v interface{}, opts ...Options) (exis
 }
 
 // CreateTable creates a table if not exist. If the table exists, it will alter it if necessary
-func (d *DB) CreateTable(v interface{}, opts ...Options) error {
+func (d *xdb) CreateTable(v interface{}, opts ...Options) error {
 	exists, create, alter, opt, err := d.createAndAlterTableStatements(v, opts...)
 	if err != nil {
 		return err

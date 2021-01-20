@@ -11,7 +11,7 @@ import (
 
 // InsertOnDuplicateKeyUpdate executes 'INSERT ... ON DUPLICATE KEY UPDATE ...' statements.
 // This function is a combination of Insert and Update, without WHERE conditions.
-func (d *DB) InsertOnDuplicateKeyUpdate(
+func (d *xdb) InsertOnDuplicateKeyUpdate(
 	v interface{}, updates map[string]interface{}, opts ...Options,
 ) (result sql.Result, err error) {
 	if nil == d.db {
@@ -79,7 +79,7 @@ func (d *DB) InsertOnDuplicateKeyUpdate(
 }
 
 // InsertManyOnDuplicateKeyUpdate is similar with InsertOnDuplicateKeyUpdate, but insert mutiple records for onetime.
-func (d *DB) InsertManyOnDuplicateKeyUpdate(
+func (d *xdb) InsertManyOnDuplicateKeyUpdate(
 	records interface{}, updates map[string]interface{}, opts ...Options,
 ) (result sql.Result, err error) {
 	if nil == d.db {

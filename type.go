@@ -1,11 +1,10 @@
 package mysqlx
 
 import (
+	"database/sql"
 	"fmt"
 	"strings"
-	"sync"
 
-	atomicbool "github.com/Andrew-M-C/go.atomicbool"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -18,28 +17,39 @@ type Param struct {
 	DBName string
 }
 
-// RawStatement identifies raw MySQL statement, which will be directly added into sql statements.
-// Now RawStatement is available in Update function.
-type RawStatement string
+// CURD interface declares supported MySQL CURD operations
+type CURD interface {
+	Delete(prototype interface{}, args ...interface{}) (sql.Result, error)
+	Insert(v interface{}, opts ...Options) (sql.Result, error)
+	InsertIfNotExists(insert interface{}, conds ...interface{}) (sql.Result, error)
+	InsertMany(records interface{}, opts ...Options) (result sql.Result, err error)
+	InsertOnDuplicateKeyUpdate(v interface{}, updates map[string]interface{}, opts ...Options) (sql.Result, error)
+	InsertManyOnDuplicateKeyUpdate(records interface{}, updates map[string]interface{}, opts ...Options) (sql.Result, error)
+	Select(dst interface{}, args ...interface{}) error
+	SelectOrInsert(insert interface{}, selectResult interface{}, conds ...interface{}) (sql.Result, error)
+	Update(prototype interface{}, fields map[string]interface{}, args ...interface{}) (sql.Result, error)
+}
 
-// DB is the main structure for mysqlx
-type DB struct {
-	db    *sqlx.DB
-	param Param
+// DB represent a connection
+type DB interface {
+	CURD
 
-	// keep alive routine status
-	shouldKeepAlive int32
-	isKeepingAlive  int32
-
-	// interface field buffers
-	bufferedFields       sync.Map // []*Field
-	bufferedFieldMaps    sync.Map // map[string]*Field
-	bufferedSelectFields sync.Map // []string
-	bufferedIncrField    sync.Map // *Field
-
-	// stores created tables
-	autoCreateTable atomicbool.B
-	createdTables   sync.Map // bool
+	AutoCreateTable()
+	Begin() (Tx, error)
+	CreateOrAlterTableStatements(v interface{}, opts ...Options) (exists bool, statements []string, err error)
+	CreateTable(v interface{}, opts ...Options) error
+	CurrentDatabase() (string, error)
+	Database() string
+	InsertFields(s interface{}, backQuoted bool) (keys []string, values []string, err error)
+	KeepAlive()
+	MustCreateTable(v interface{}, opts ...Options)
+	ReadStructFields(s interface{}) (ret []*Field, err error)
+	ReadTableFields(table string) (ret []*Field, err error)
+	ReadTableIndexes(table string) (map[string]*Index, map[string]*Unique, error)
+	SelectFields(s interface{}) (string, error)
+	Sqlx() *sqlx.DB
+	StopKeepAlive()
+	StructFields(s interface{}) (ret []*Field, err error)
 }
 
 // Index shows the information of an index setting

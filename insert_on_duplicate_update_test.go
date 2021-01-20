@@ -100,7 +100,7 @@ func TestInsertOnDuplicateKeyUpdate(t *testing.T) {
 	_, err = db.InsertOnDuplicateKeyUpdate(
 		&dept,
 		map[string]interface{}{
-			"f_id": RawStatement("`f_id`"),
+			"f_id": Raw("= `f_id`"),
 		},
 	)
 	if err != nil {

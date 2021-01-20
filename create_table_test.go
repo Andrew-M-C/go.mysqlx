@@ -58,7 +58,7 @@ create database db_test;
 grant all privileges on db_test.* to 'travis'@'localhost';
 flush privileges;
 */
-func testCreateTable(t *testing.T, d *DB) {
+func testCreateTable(t *testing.T, d DB) {
 	d.Sqlx().Exec("DROP TABLE `t_test`")
 	d.Sqlx().Exec("DROP TABLE `t_testB`")
 
@@ -111,20 +111,7 @@ func testCreateTable(t *testing.T, d *DB) {
 	return
 }
 
-func TestPanic(t *testing.T) {
-	defer func() {
-		if err := recover(); err == nil {
-			t.Errorf("error expected but not catched")
-		}
-	}()
-
-	d := &DB{}
-	d.MustCreateTable(FirstTable{})
-
-	return
-}
-
-func testCreateNoAutoIncrement(t *testing.T, d *DB) {
+func testCreateNoAutoIncrement(t *testing.T, d DB) {
 	d.Sqlx().Exec("DROP TABLE `t_no_inc`")
 	d.MustCreateTable(
 		struct {
@@ -135,7 +122,7 @@ func testCreateNoAutoIncrement(t *testing.T, d *DB) {
 }
 
 // some expection / error test
-func testCreateTableMiscError(t *testing.T, d *DB) {
+func testCreateTableMiscError(t *testing.T, d DB) {
 	var err error
 	checkExpectedError := func(msg string) {
 		if err == nil {
@@ -333,7 +320,7 @@ func (s *TableWithTimestamp) Options() Options {
 	}
 }
 
-func testTableWithTimestamp(t *testing.T, db *DB) {
+func testTableWithTimestamp(t *testing.T, db DB) {
 	db.Sqlx().Exec("DROP TABLE `t_with_timestamp`")
 
 	createTime := time.Now().UTC()

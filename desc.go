@@ -57,7 +57,7 @@ FROM information_schema.COLUMNS
 WHERE TABLE_SCHEMA='%s' AND TABLE_NAME='%s' ORDER BY ORDINAL_POSITION`
 
 // ReadTableFields returns all fields in given table
-func (d *DB) ReadTableFields(table string) (ret []*Field, err error) {
+func (d *xdb) ReadTableFields(table string) (ret []*Field, err error) {
 	if nil == d.db {
 		return nil, fmt.Errorf("mysqlx not initialized")
 	}
@@ -127,7 +127,7 @@ type currDB struct {
 }
 
 // CurrentDatabase gets current operating database
-func (d *DB) CurrentDatabase() (string, error) {
+func (d *xdb) CurrentDatabase() (string, error) {
 	var res []currDB
 	err := d.db.Select(&res, "select database()")
 	if err != nil {
@@ -162,7 +162,7 @@ type _Index struct {
 const _ReadTableIndexes = "SELECT TABLE_NAME, NON_UNIQUE, INDEX_NAME, SEQ_IN_INDEX, COLUMN_NAME, NULLABLE FROM information_schema.STATISTICS WHERE TABLE_SCHEMA='%s' AND TABLE_NAME='%s'"
 
 // ReadTableIndexes returns all indexes and uniques of given table name
-func (d *DB) ReadTableIndexes(table string) (map[string]*Index, map[string]*Unique, error) {
+func (d *xdb) ReadTableIndexes(table string) (map[string]*Index, map[string]*Unique, error) {
 	if nil == d.db {
 		return nil, nil, fmt.Errorf("mysqlx not initialized")
 	}
@@ -227,7 +227,7 @@ func (d *DB) ReadTableIndexes(table string) (map[string]*Index, map[string]*Uniq
 }
 
 // ReadStructFields returns all valid SQL fields by given structure and will buffer it
-func (d *DB) ReadStructFields(s interface{}) (ret []*Field, err error) {
+func (d *xdb) ReadStructFields(s interface{}) (ret []*Field, err error) {
 	// read from buffer
 	intfName := reflect.TypeOf(s)
 	fieldValue, exist := d.bufferedFields.Load(intfName)
@@ -244,7 +244,7 @@ func (d *DB) ReadStructFields(s interface{}) (ret []*Field, err error) {
 }
 
 // StructFields is the same as ReadStructFields
-func (*DB) StructFields(s interface{}) (ret []*Field, err error) {
+func (*xdb) StructFields(s interface{}) (ret []*Field, err error) {
 	return ReadStructFields(s)
 }
 

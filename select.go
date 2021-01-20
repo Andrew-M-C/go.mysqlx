@@ -9,7 +9,7 @@ import (
 // ========
 
 // SelectFields returns all valid SQL fields in given structure
-func (d *DB) SelectFields(s interface{}) (string, error) {
+func (d *xdb) SelectFields(s interface{}) (string, error) {
 	// TODO: read interface until we get a struct
 
 	// read from buffer
@@ -35,7 +35,7 @@ func (d *DB) SelectFields(s interface{}) (string, error) {
 	return ret, nil
 }
 
-func (d *DB) getFieldMap(prototype interface{}) (fieldMap map[string]*Field, err error) {
+func (d *xdb) getFieldMap(prototype interface{}) (fieldMap map[string]*Field, err error) {
 	intfName := reflect.TypeOf(prototype)
 	if fieldMapValue, exist := d.bufferedFieldMaps.Load(intfName); exist {
 		fieldMap = fieldMapValue.(map[string]*Field)
@@ -55,7 +55,7 @@ func (d *DB) getFieldMap(prototype interface{}) (fieldMap map[string]*Field, err
 	return
 }
 
-func (d *DB) getIncrementField(prototype interface{}) (field *Field, err error) {
+func (d *xdb) getIncrementField(prototype interface{}) (field *Field, err error) {
 	intfName := reflect.TypeOf(prototype)
 	if fieldValue, exist := d.bufferedIncrField.Load(intfName); exist {
 		field = fieldValue.(*Field)
@@ -79,7 +79,7 @@ func (d *DB) getIncrementField(prototype interface{}) (field *Field, err error) 
 }
 
 // Select execute a SQL select statement
-func (d *DB) Select(dst interface{}, args ...interface{}) error {
+func (d *xdb) Select(dst interface{}, args ...interface{}) error {
 	if nil == d.db {
 		return fmt.Errorf("mysqlx not initialized")
 	}

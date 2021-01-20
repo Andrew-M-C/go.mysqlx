@@ -12,7 +12,7 @@ import (
 // ========
 
 // Update execute UPDATE SQL statement with given structure and conditions
-func (d *DB) Update(
+func (d *xdb) Update(
 	prototype interface{}, fields map[string]interface{}, args ...interface{},
 ) (sql.Result, error) {
 	if nil == d.db {
@@ -82,7 +82,7 @@ func (d *DB) Update(
 	return res, err
 }
 
-func (d *DB) genUpdateKVs(prototype interface{}, fields map[string]interface{}) ([]string, error) {
+func (d *xdb) genUpdateKVs(prototype interface{}, fields map[string]interface{}) ([]string, error) {
 	fieldMap, err := d.getFieldMap(prototype)
 	if err != nil {
 		return nil, err
@@ -98,12 +98,6 @@ func (d *DB) genUpdateKVs(prototype interface{}, fields map[string]interface{}) 
 			return nil, fmt.Errorf("field '%s' not recognized", k)
 		}
 		switch v.(type) {
-		case RawStatement:
-			statement := v.(RawStatement)
-			kv = append(kv, fmt.Sprintf("`%s` = %s", k, statement))
-		case *RawStatement:
-			statement := v.(*RawStatement)
-			kv = append(kv, fmt.Sprintf("`%s` = %s", k, *statement))
 		case int, int64, int32, int16, int8:
 			n := reflect.ValueOf(v).Int()
 			kv = append(kv, fmt.Sprintf("`%s` = %d", k, n))

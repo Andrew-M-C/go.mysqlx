@@ -46,7 +46,7 @@ func (User) Options() Options {
 	}
 }
 
-func getDB() (*DB, error) {
+func getDB() (DB, error) {
 	return Open(Param{
 		User:   "travis",
 		DBName: "db_test",

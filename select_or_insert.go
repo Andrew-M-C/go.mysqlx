@@ -10,7 +10,7 @@ import (
 // ========
 
 // SelectOrInsert executes update-if-not-exists statement
-func (d *DB) SelectOrInsert(insert interface{}, selectResult interface{}, conds ...interface{}) (res sql.Result, err error) {
+func (d *xdb) SelectOrInsert(insert interface{}, selectResult interface{}, conds ...interface{}) (res sql.Result, err error) {
 	if nil == d.db {
 		return nil, fmt.Errorf("mysqlx not initialized")
 	}
@@ -121,6 +121,6 @@ func (d *DB) SelectOrInsert(insert interface{}, selectResult interface{}, conds 
 // ========
 
 //InsertIfNotExists is the same as SelectOrInsert but lacking select statement
-func (d *DB) InsertIfNotExists(insert interface{}, conds ...interface{}) (res sql.Result, err error) {
+func (d *xdb) InsertIfNotExists(insert interface{}, conds ...interface{}) (res sql.Result, err error) {
 	return d.SelectOrInsert(insert, nil, conds...)
 }

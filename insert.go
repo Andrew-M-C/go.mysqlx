@@ -20,7 +20,7 @@ var (
 // ========
 
 // InsertFields return keys and values for inserting. Auto-increment fields will be ignored
-func (d *DB) InsertFields(s interface{}, backQuoted bool) (keys []string, values []string, err error) {
+func (d *xdb) InsertFields(s interface{}, backQuoted bool) (keys []string, values []string, err error) {
 	t := reflect.TypeOf(s)
 	v := reflect.ValueOf(s)
 
@@ -132,7 +132,7 @@ func (d *DB) InsertFields(s interface{}, backQuoted bool) (keys []string, values
 }
 
 // Insert insert a given structure. auto-increment fields will be ignored
-func (d *DB) Insert(v interface{}, opts ...Options) (result sql.Result, err error) {
+func (d *xdb) Insert(v interface{}, opts ...Options) (result sql.Result, err error) {
 	if nil == d.db {
 		return nil, fmt.Errorf("nil *sqlx.DB")
 	}

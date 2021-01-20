@@ -16,7 +16,7 @@ type _parsedArgs struct {
 	OrderList []string
 }
 
-func (d *DB) handleArgs(prototype interface{}, args []interface{}) (ret *_parsedArgs, err error) {
+func (d *xdb) handleArgs(prototype interface{}, args []interface{}) (ret *_parsedArgs, err error) {
 	ret = &_parsedArgs{
 		CondList:  make([]string, 0, len(args)),
 		OrderList: make([]string, 0, len(args)),
