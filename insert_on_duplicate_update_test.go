@@ -110,3 +110,60 @@ func TestInsertOnDuplicateKeyUpdate(t *testing.T) {
 
 	return
 }
+
+func TestInsertManyOnDuplicateKeyUpdate(t *testing.T) {
+	db, err := getDB()
+	if err != nil {
+		t.Errorf("getDB error: %v", err)
+		return
+	}
+
+	t.Logf("now exec InsertManyOnDuplicateUpdate")
+	db.AutoCreateTable()
+
+	// insert multiple records
+	ins := []*department{
+		{
+			Dept: "R&D",
+			Desc: "IT developers", // prev value: 'IT development'
+		}, {
+			Dept: "Sales",
+			Desc: "Sales staff",
+		},
+	}
+	_, err = db.InsertManyOnDuplicateKeyUpdate(
+		ins, map[string]interface{}{
+			"f_id": Raw("= f_id"),
+		},
+		Options{DoNotExec: true},
+	)
+	t.Logf("InsertManyOnDuplicateKeyUpdate statement: %v", GetQueryFromError(err))
+
+	_, err = db.InsertManyOnDuplicateKeyUpdate(
+		ins, map[string]interface{}{
+			"f_id": Raw("= f_id"),
+		},
+	)
+	if err != nil {
+		t.Errorf("db.InsertManyOnDuplicateKeyUpdate error: %v", err)
+		return
+	}
+
+	// check data is not changed
+	var res []*department
+	err = db.Select(&res)
+	if err != nil {
+		t.Errorf("db.Select() error: %v", err)
+		return
+	}
+	for _, d := range res {
+		if d.Dept == "R&D" {
+			if d.Desc == ins[0].Desc {
+				t.Errorf("desc is NOT expected to change but changed!")
+				return
+			}
+		}
+	}
+
+	return
+}

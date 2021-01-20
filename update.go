@@ -128,6 +128,9 @@ func (d *DB) genUpdateKVs(prototype interface{}, fields map[string]interface{}) 
 			kv = append(kv, "`"+k+"`"+" = "+valStr)
 		case nil:
 			kv = append(kv, "`"+k+"`"+" = NULL")
+		case Raw:
+			valStr := string(v.(Raw))
+			kv = append(kv, "`"+k+"` "+valStr)
 		}
 	}
 	return kv, nil
