@@ -141,7 +141,7 @@ func TestInsertManyOnDuplicateKeyUpdate(t *testing.T) {
 
 	_, err = db.InsertManyOnDuplicateKeyUpdate(
 		ins, map[string]interface{}{
-			"f_id": Raw("= f_id"),
+			"f_id": Raw("= VALUES(`f_id`)"),
 		},
 	)
 	if err != nil {

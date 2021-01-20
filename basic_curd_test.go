@@ -188,7 +188,7 @@ func TestQuery(t *testing.T) {
 		Condition("family_name", "<>", "Disney"),
 		Condition("die_time", "=", nil), // for MySQL NULL, should be "IS" or "IS NOT", but here er make some compatibility
 		Condition("birth_date", ">=", time.Date(1910, 1, 1, 0, 0, 0, 0, time.UTC)),
-		Offset{1}, Limit{2},
+		Offset(1), Limit(2),
 		Order{"id", "DESC"},
 	)
 	if err != nil {
@@ -231,7 +231,7 @@ func TestQuery(t *testing.T) {
 		},
 		Condition("first_name", "=", "Diane"),
 		Condition("family_name", "=", "Miller"),
-		Limit{1},
+		Limit(1),
 	)
 	if err != nil {
 		t.Errorf("Update failed: %v", err)

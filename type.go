@@ -114,11 +114,15 @@ type Options struct {
 }
 
 // Offset is for MySQL offset statement
-type Offset struct {
-	Offset int
-}
+type Offset int
 
 // Limit is for MySQL limit statement
-type Limit struct {
-	Limit int
-}
+type Limit int
+
+// Raw stores a raw MySQL query statement. In mysqlx operation, Raw type will added to sql query statement directly
+// without any escaping.
+//
+// Currently only update fields supports Raw, like:
+//
+//     map[string]interface{}{"id": mysqlx.Raw("= id")}
+type Raw string

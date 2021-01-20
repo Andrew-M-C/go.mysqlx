@@ -41,13 +41,9 @@ func (d *DB) handleArgs(prototype interface{}, args []interface{}) (ret *_parsed
 		case Options:
 			ret.Opt = mergeOptions(prototype, arg.(Options))
 		case Limit:
-			ret.Limit = arg.(Limit).Limit
-		case *Limit:
-			ret.Limit = arg.(*Limit).Limit
+			ret.Limit = int(arg.(Limit))
 		case Offset:
-			ret.Offset = arg.(Offset).Offset
-		case *Offset:
-			ret.Offset = arg.(*Offset).Offset
+			ret.Offset = int(arg.(Offset))
 		case Cond:
 			cond := arg.(Cond)
 			c = cond.pack(ret.FieldMap)
