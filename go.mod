@@ -8,5 +8,4 @@ require (
 	github.com/google/uuid v1.1.2
 	github.com/jinzhu/gorm v1.9.11
 	github.com/jmoiron/sqlx v1.2.0
-	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 )

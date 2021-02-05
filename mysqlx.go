@@ -9,6 +9,8 @@ import (
 	"time"
 
 	atomicbool "github.com/Andrew-M-C/go.atomicbool"
+
+	// import mysql driver
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 )

@@ -12,14 +12,12 @@ func TestInsertMany(t *testing.T) {
 	}
 
 	records := []*VarTable{
-		&VarTable{
+		{
 			String: "Hello Asia",
 			index:  1,
-		},
-		&VarTable{
+		}, {
 			String: "Hello Europe",
-		},
-		&VarTable{
+		}, {
 			String: "Hello Africa",
 		},
 	}

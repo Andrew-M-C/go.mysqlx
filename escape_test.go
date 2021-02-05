@@ -1,6 +1,7 @@
 package mysqlx
 
 import (
+	"errors"
 	"testing"
 	"time"
 )
@@ -17,12 +18,44 @@ func (String) Options() Options {
 	}
 }
 
+func testSpecialString(t *testing.T, db DB, id int32, s string) (err error) {
+	t.Logf("test special string: %s for id %d", s, id)
+
+	_, err = db.Update(String{},
+		map[string]interface{}{
+			"string": s,
+		},
+		Condition("id", "=", id),
+	)
+	if err != nil {
+		t.Errorf("update error: %v", err)
+		return
+	}
+
+	var res []*String
+	err = db.Select(&res, Condition("id", "=", id))
+	if err != nil {
+		t.Errorf("Select error: %v", err)
+		return
+	}
+	if len(res) == 0 {
+		err = errors.New("cannot find record")
+		t.Error(err)
+		return
+	}
+
+	if res[0].S != s {
+		t.Errorf("expected string '%s', but got '%s'", s, res[0].S)
+		return errors.New("")
+	}
+
+	return nil
+}
+
 // reference: https://www.cnblogs.com/amylis_chen/archive/2010/07/16/1778921.html
 func TestSpecialCharacters(t *testing.T) {
 	printf := t.Logf
 	errorf := t.Errorf
-
-	speChars := `<%_％＿'"` + "`" + `%\r\n\t\b	>` + "\r\n\\'\032"
 
 	db, err := Open(Param{
 		User:   "travis",
@@ -30,17 +63,15 @@ func TestSpecialCharacters(t *testing.T) {
 	})
 	if err != nil {
 		panic(err)
-		return
 	}
 
 	// statememts, err := db.CreateOrAlterTableStatements(String{})
 
 	db.MustCreateTable(String{})
-	printf("test spe string: '%s'", speChars)
 
 	// insert
 	s := String{
-		S:       speChars,
+		S:       "initial",
 		Created: time.Now().Unix(),
 	}
 	res, err := db.Insert(s)
@@ -48,65 +79,41 @@ func TestSpecialCharacters(t *testing.T) {
 		errorf("%v", err)
 		return
 	}
-	last, err := res.LastInsertId()
+	id, err := res.LastInsertId()
 	if err != nil {
 		errorf("none inserted %v", err)
 		return
 	}
-	printf("inserted id: %d", last)
+	printf("inserted id: %d", id)
 
-	// select
-	var arr []String
-	err = db.Select(
-		&arr,
-		Condition("string", "=", speChars),
-	)
-	if err != nil {
-		errorf("%v", err)
-		return
-	}
-	if 0 == len(arr) {
-		errorf("nothing got")
-		return
-	}
-	printf("got spe string:  '%s'", arr[0].S)
-	if arr[0].S != speChars {
-		errorf("expected <%s>, got <%s>", speChars, arr[0].S)
-		return
-	}
-
-	// update
-	res, err = db.Update(
-		s,
-		map[string]interface{}{
-			"string": speChars + " ",
-		},
-		Condition("string", "=", speChars),
-	)
-	if err != nil {
-		errorf("%v", err)
-		return
-	}
-	if affected, _ := res.RowsAffected(); 0 == affected {
-		errorf("none affected")
-		return
+	speStrings := []string{
+		`<%_％＿'"` + "`" + `%\r\n\t\b	>` + "\r\n\\'\032",
+		":::",
+		":",
+		"::",
+		"_",
+		"$",
+		"%",
+		"👈",
+		"`",
+		"'",
+		`"`,
+		"\000",
+		" ",
+		"\t",
+		`	`,
+		"\\%",
 	}
 
-	// delete
-	res, err = db.Delete(s, Condition("string", "=", speChars+" "))
-	if err != nil {
-		errorf("%v", err)
-		return
+	for _, s := range speStrings {
+		err := testSpecialString(t, db, int32(id), s)
+		if err != nil {
+			return
+		}
 	}
-	affected, err := res.RowsAffected()
-	if err != nil {
-		errorf("affected err: %v", err)
-		return
-	}
-	if 0 == affected {
-		errorf("none affected")
-		return
-	}
+
+	// delete it
+	// db.Delete(String{}, Condition("id", "=", id))
 
 	return
 }

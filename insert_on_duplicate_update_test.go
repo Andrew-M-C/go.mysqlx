@@ -13,12 +13,10 @@ type department struct {
 func (department) Options() Options {
 	return Options{
 		TableName: "t_department",
-		Uniques: []Unique{
-			Unique{
-				Name:   "u_dept",
-				Fields: []string{"f_dept"},
-			},
-		},
+		Uniques: []Unique{{
+			Name:   "u_dept",
+			Fields: []string{"f_dept"},
+		}},
 		CreateTableParams: map[string]string{
 			"AUTO_INCREMENT": "10", // make f_id greater than 1
 		},
