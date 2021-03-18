@@ -352,13 +352,6 @@ func TestMultiConds(t *testing.T) {
 	return
 }
 
-// type DateRecord struct {
-// 	ID    int64 `db:"f_id"     mysqlx:"increment:true"`
-// 	Year  int32 `db:"f_year"`
-// 	Month int8  `db:"f_month"`
-// 	Day   int8  `db:"f_day"`
-// }
-
 type DateRecord struct {
 	ID          int64  `db:"id"            mysqlx:"increment:true"       comment:"自增 ID"`
 	BusinessID  int32  `db:"business_id"                                 comment:"集成商 ID"`
@@ -375,4 +368,74 @@ func (DateRecord) Options() Options {
 	return Options{
 		TableName: "t_date_record",
 	}
+}
+
+type recForAutoIncTest struct {
+	ID     int64  `db:"id"         mysqlx:"increment:true"`
+	String string `db:"string"     mysqlx:"type:varchar(32)"`
+}
+
+const recForAutoIncTestTableName = "t_mysqlx_rec_for_auto_inc_test"
+
+func (recForAutoIncTest) Options() Options {
+	return Options{
+		TableName: recForAutoIncTestTableName,
+		Uniques: []Unique{{
+			Name:   "u_string",
+			Fields: []string{"string"},
+		}},
+	}
+}
+
+func TestSpecifyingAutoIncrementID(t *testing.T) {
+	var err error
+
+	d, err := getDB()
+	if err != nil {
+		t.Errorf("open failed: %v", err)
+		return
+	}
+
+	d.Sqlx().Exec("DROP TABLE ?", recForAutoIncTestTableName)
+	id := int64(2)
+	s := "Hello, world!"
+	r := recForAutoIncTest{
+		ID:     id,
+		String: s,
+	}
+
+	err = d.CreateTable(r)
+	if err != nil {
+		t.Errorf("CreateTable error: %v", err)
+		return
+	}
+
+	ins, err := d.Insert(&r)
+	if err != nil {
+		t.Errorf("Insert error: %w", err)
+		return
+	}
+	if inserted, _ := ins.LastInsertId(); inserted != id {
+		t.Errorf("expected insert ID %d, but got %d", id, inserted)
+		return
+	}
+
+	// ensure again
+	var res []*recForAutoIncTest
+	err = d.Select(&res, Condition("string", "=", s))
+	if err != nil {
+		t.Errorf("Select error: %v", err)
+		return
+	}
+	if 0 == len(res) {
+		t.Errorf("read no records from %s", recForAutoIncTestTableName)
+		return
+	}
+
+	if res[0].ID != id {
+		t.Errorf("expected insert ID %d, but got %d", id, res[0].ID)
+		return
+	}
+
+	return
 }

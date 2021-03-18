@@ -19,8 +19,12 @@ var (
 
 // ========
 
-// InsertFields return keys and values for inserting. Auto-increment fields will be ignored
+// InsertFields return keys and values for inserting, auto-increment fields will be ignored if its value is zero
 func (d *xdb) InsertFields(s interface{}, backQuoted bool) (keys []string, values []string, err error) {
+	return d.insertFields(s, backQuoted, false)
+}
+
+func (d *xdb) insertFields(s interface{}, backQuoted bool, ignoreNonZeroIncrement bool) (keys []string, values []string, err error) {
 	t := reflect.TypeOf(s)
 	v := reflect.ValueOf(s)
 
@@ -45,6 +49,7 @@ func (d *xdb) InsertFields(s interface{}, backQuoted bool) (keys []string, value
 			continue
 		}
 
+		incrementField := false
 		fieldName := getFieldName(&tf)
 		if fieldName == "-" {
 			continue
@@ -56,10 +61,11 @@ func (d *xdb) InsertFields(s interface{}, backQuoted bool) (keys []string, value
 			}
 		} else {
 			f, exist := fieldMap[fieldName]
-			if false == exist || f.AutoIncrement {
+			if false == exist {
 				// log.Println(fieldName, "not exists")
 				continue
 			}
+			incrementField = f.AutoIncrement
 		}
 
 		var val string
@@ -105,7 +111,7 @@ func (d *xdb) InsertFields(s interface{}, backQuoted bool) (keys []string, value
 		default:
 			if reflect.Struct == tf.Type.Kind() {
 				// log.Println("Embedded struct: ", tf.Type)
-				embedKey, embedValue, err := d.InsertFields(vf.Interface(), false)
+				embedKey, embedValue, err := d.insertFields(vf.Interface(), false, ignoreNonZeroIncrement)
 				if err != nil {
 					return nil, nil, err
 				}
@@ -115,6 +121,15 @@ func (d *xdb) InsertFields(s interface{}, backQuoted bool) (keys []string, value
 				// log.Println("unknown type:", tf.Type.Kind())
 			}
 			continue
+		}
+
+		if incrementField {
+			if ignoreNonZeroIncrement {
+				continue
+			}
+			if val == "0" {
+				continue
+			}
 		}
 
 		keys = append(keys, fieldName)
@@ -131,7 +146,7 @@ func (d *xdb) InsertFields(s interface{}, backQuoted bool) (keys []string, value
 	return
 }
 
-// Insert insert a given structure. auto-increment fields will be ignored
+// Insert insert a given structure. auto-increment fields will be ignored if its value is zero
 func (d *xdb) Insert(v interface{}, opts ...Options) (result sql.Result, err error) {
 	return d.insert(d.db, v, opts...)
 }
@@ -152,7 +167,7 @@ func (d *xdb) insert(obj sqlObj, v interface{}, opts ...Options) (result sql.Res
 		return nil, fmt.Errorf("parameter type invalid (%v)", prototypeType)
 	}
 
-	keys, values, err := d.InsertFields(v, true)
+	keys, values, err := d.insertFields(v, true, false)
 	if err != nil {
 		return nil, err
 	}

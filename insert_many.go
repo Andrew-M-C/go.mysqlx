@@ -11,7 +11,7 @@ import (
 )
 
 // InsertMany insert multiple records into table. If additional option with table name is not given,
-// mysqlx will use the FIRST table name in records for all.
+// mysqlx will use the FIRST table name in records for all. All auto-increment fields will be ignored.
 func (d *xdb) InsertMany(records interface{}, opts ...Options) (result sql.Result, err error) {
 	return d.insertMany(d.db, records, opts...)
 }
@@ -58,7 +58,7 @@ func (d *xdb) insertMany(obj sqlObj, records interface{}, opts ...Options) (resu
 		return nil, fmt.Errorf("empty table name for type %v", reflect.TypeOf(v))
 	}
 
-	keys, values, err := d.InsertFields(v, true)
+	keys, values, err := d.insertFields(v, true, true)
 	if err != nil {
 		return
 	}
@@ -80,7 +80,7 @@ func (d *xdb) insertMany(obj sqlObj, records interface{}, opts ...Options) (resu
 			v = va.Index(i).Interface()
 		}
 
-		_, values, err = d.InsertFields(v, true)
+		_, values, err = d.insertFields(v, true, true)
 		if err != nil {
 			return
 		}

@@ -49,7 +49,7 @@ func (d *xdb) selectOrInsert(
 	}
 
 	// handle insert fields and values
-	keys, values, err := d.InsertFields(insert, false)
+	keys, values, err := d.insertFields(insert, false, false)
 	if err != nil {
 		return nil, err
 	}

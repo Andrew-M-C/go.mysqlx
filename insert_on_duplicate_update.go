@@ -37,7 +37,7 @@ func (d *xdb) insertOnDuplicateKeyUpdate(
 		return nil, fmt.Errorf("parameter type invalid (%v)", prototypeType)
 	}
 
-	keys, values, err := d.InsertFields(v, true)
+	keys, values, err := d.insertFields(v, true, false)
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +133,7 @@ func (d *xdb) insertManyOnDuplicateKeyUpdate(
 		return nil, fmt.Errorf("empty table name for type %v", reflect.TypeOf(v))
 	}
 
-	keys, values, err := d.InsertFields(v, true)
+	keys, values, err := d.insertFields(v, true, false)
 	if err != nil {
 		return
 	}
@@ -164,7 +164,7 @@ func (d *xdb) insertManyOnDuplicateKeyUpdate(
 			v = va.Index(i).Interface()
 		}
 
-		_, values, err = d.InsertFields(v, true)
+		_, values, err = d.insertFields(v, true, true)
 		if err != nil {
 			return
 		}

@@ -1,4 +1,4 @@
-// Package structs is a simple test package for mysqlx. Please do not use this.
+// Package structs is a utility package for mysqlx. Please do not use this.
 package structs
 
 import (
