@@ -396,7 +396,9 @@ func TestSpecifyingAutoIncrementID(t *testing.T) {
 		return
 	}
 
-	d.Sqlx().Exec("DROP TABLE ?", recForAutoIncTestTableName)
+	_, err = d.Sqlx().Exec("DROP TABLE " + recForAutoIncTestTableName)
+	checkError(t, err, "DROP TABLE")
+
 	id := int64(2)
 	s := "Hello, world!"
 	r := recForAutoIncTest{
@@ -412,7 +414,7 @@ func TestSpecifyingAutoIncrementID(t *testing.T) {
 
 	ins, err := d.Insert(&r)
 	if err != nil {
-		t.Errorf("Insert error: %w", err)
+		t.Errorf("Insert error: %v", err)
 		return
 	}
 	if inserted, _ := ins.LastInsertId(); inserted != id {

@@ -14,6 +14,7 @@ type _parsedArgs struct {
 	Limit     int
 	CondList  []string
 	OrderList []string
+	forUpdate bool
 }
 
 func (d *xdb) handleArgs(prototype interface{}, args []interface{}) (ret *_parsedArgs, err error) {
@@ -68,6 +69,10 @@ func (d *xdb) handleArgs(prototype interface{}, args []interface{}) (ret *_parse
 		case *Order:
 			order := arg.(*Order)
 			o = order.pack()
+		case *ForUpdateType:
+			ret.forUpdate = true
+		case ForUpdateType:
+			ret.forUpdate = true
 		}
 
 		if "" != c {

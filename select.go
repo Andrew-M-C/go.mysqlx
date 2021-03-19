@@ -144,9 +144,14 @@ func (d *xdb) selectFunc(obj sqlObj, dst interface{}, args ...interface{}) error
 		condStr = "WHERE " + strings.Join(parsedArgs.CondList, " AND ")
 	}
 
+	var forUpdateStr string
+	if parsedArgs.forUpdate {
+		forUpdateStr = "FOR UPDATE"
+	}
+
 	query := fmt.Sprintf(
-		"SELECT %s FROM `%s` %s %s %s %s",
-		fieldsStr, parsedArgs.Opt.TableName, condStr, orderStr, limitStr, offsetStr,
+		"SELECT %s FROM `%s` %s %s %s %s %s",
+		fieldsStr, parsedArgs.Opt.TableName, condStr, orderStr, limitStr, offsetStr, forUpdateStr,
 	)
 	// log.Println("select query:", query)
 	if parsedArgs.Opt.DoNotExec {
