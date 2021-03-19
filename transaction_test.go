@@ -13,6 +13,7 @@ func checkError(t *testing.T, err error, s string) {
 		return
 	}
 	t.Errorf("%v - %s error: %v", time.Now(), s, err)
+	time.Sleep(time.Second)
 	os.Exit(1)
 }
 
