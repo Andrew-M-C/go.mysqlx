@@ -32,6 +32,12 @@ func TestSelectOrInsert(t *testing.T) {
 	var all []User
 
 	// This should be first
+	_, err = d.SelectOrInsert(abigai, &all,
+		Condition("first_name", "=", "Abigail"),
+		Condition("family_name", "=", "Disney"),
+		Options{DoNotExec: true},
+	)
+	t.Logf("SQL: %s", GetQueryFromError(err))
 	res, err := d.SelectOrInsert(abigai, &all,
 		Condition("first_name", "=", "Abigail"),
 		Condition("family_name", "=", "Disney"),
