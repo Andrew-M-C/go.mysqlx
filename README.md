@@ -13,9 +13,7 @@
 
 ## Supported Go version
 
-- `Go 1.13`
-- `Go 1.14`
-- `Go 1.15`
+- `Go 1.19+`
 
 ## Supported MySQL data types
 

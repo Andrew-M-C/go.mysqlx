@@ -15,6 +15,8 @@ type Param struct {
 	User   string
 	Pass   string
 	DBName string
+
+	Params map[string]string
 }
 
 // CURD interface declares supported MySQL CURD operations
@@ -192,7 +194,7 @@ type Options struct {
 	// Uniques defines the uniques of the table
 	Uniques []Unique
 	// CreateTableParams defines additional variables in create table statements.
-	// There are three default variaments, which could be replaced:
+	// There are three default variables, which could be replaced:
 	// ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4
 	CreateTableParams map[string]string
 	// DoNotExec stop the actual database executing process if it is set as true. Instead, CURD
@@ -212,5 +214,5 @@ type Limit int
 //
 // Currently only update fields supports Raw, like:
 //
-//     map[string]interface{}{"id": mysqlx.Raw("= id")}
+//	map[string]interface{}{"id": mysqlx.Raw("= id")}
 type Raw string

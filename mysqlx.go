@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -13,10 +14,6 @@ import (
 	// import mysql driver
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
-)
-
-var (
-	debugf = log.Printf
 )
 
 type dbInfo struct {
@@ -69,7 +66,7 @@ func New(db *sqlx.DB) (DB, error) {
 	if nil == dbList || 0 == len(dbList) {
 		return nil, fmt.Errorf("Cannot determine database name in sqlx")
 	}
-	if false == dbList[0].Name.Valid {
+	if !dbList[0].Name.Valid {
 		return nil, fmt.Errorf("sqlx is not using any database")
 	}
 
@@ -77,6 +74,13 @@ func New(db *sqlx.DB) (DB, error) {
 	ret.db = db
 	ret.param.DBName = dbList[0].Name.String
 	return ret, nil
+}
+
+// SetDebugFunc set a function for debugging mysqlx
+func SetDebugFunc(f func(string, ...any)) {
+	if f != nil {
+		internal.debugf = f
+	}
 }
 
 // Open initialize a *xdb object with a valid *sqlx.DB
@@ -98,23 +102,12 @@ func Open(param Param) (DB, error) {
 	// param.User = strings.Replace(param.User, "'", "\\'", -1)
 	// param.Pass = strings.Replace(param.Pass, "'", "\\'", -1)
 
+	uri := genURI(&param)
+	internal.debugf("Got URI: '%s'", uri)
+
 	ret := &xdb{
 		param: param,
 	}
-
-	var uri string
-	if "" == param.Pass {
-		uri = fmt.Sprintf(
-			"'%s'@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=true",
-			param.User, param.Host, param.Port, param.DBName,
-		)
-	} else {
-		uri = fmt.Sprintf(
-			"'%s':%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=true",
-			param.User, param.Pass, param.Host, param.Port, param.DBName,
-		)
-	}
-
 	ret.db, err = sqlx.Open("mysql", uri)
 	if err != nil {
 		return nil, err
@@ -130,7 +123,7 @@ func Open(param Param) (DB, error) {
 	if nil == dbList || 0 == len(dbList) {
 		return nil, fmt.Errorf("Cannot determine database name in sqlx")
 	}
-	if false == dbList[0].Name.Valid {
+	if !dbList[0].Name.Valid {
 		return nil, fmt.Errorf("sqlx is not using any database")
 	}
 
@@ -138,11 +131,47 @@ func Open(param Param) (DB, error) {
 	return ret, nil
 }
 
+func genURI(p *Param) string {
+	params := map[string]string{
+		"charset":   "utf8mb4",
+		"parseTime": "true",
+	}
+	for k, v := range p.Params {
+		params[k] = v
+	}
+
+	p.Params = params
+	buff := strings.Builder{}
+
+	if p.Pass == "" {
+		leading := fmt.Sprintf("%s@tcp(%s:%d)/%s?", p.User, p.Host, p.Port, p.DBName)
+		buff.WriteString(leading)
+	} else {
+		leading := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?", p.User, p.Pass, p.Host, p.Port, p.DBName)
+		buff.WriteString(leading)
+	}
+
+	firstKeyWritten := false
+	for k, v := range params {
+		if !firstKeyWritten {
+			firstKeyWritten = true
+		} else {
+			buff.WriteByte('&')
+		}
+
+		buff.WriteString(k)
+		buff.WriteByte('=')
+		buff.WriteString(v)
+	}
+
+	return buff.String()
+}
+
 func keepAlive(d *xdb) {
 	atomic.StoreInt32(&d.isKeepingAlive, 1)
 	defer atomic.StoreInt32(&d.isKeepingAlive, 0)
 
-	for true {
+	for {
 		shouldKeepAlive := atomic.LoadInt32(&d.shouldKeepAlive)
 		if shouldKeepAlive <= 0 {
 			return
@@ -157,7 +186,6 @@ func keepAlive(d *xdb) {
 			return
 		}
 	}
-	return
 }
 
 // Sqlx return the *sqlx.DB object
